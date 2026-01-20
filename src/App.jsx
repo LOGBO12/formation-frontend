@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
+import Navbar from './components/Navbar'; 
+import Footer from './components/Footer'; 
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -35,6 +37,10 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster position="top-right" />
+        <div className="d-flex flex-column min-vh-100"> {/* ✅ AJOUT */}
+          <Navbar /> {/* ✅ AJOUT */}
+          
+          <main className="flex-grow-1"> {/* ✅ AJOUT */}
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
@@ -157,6 +163,10 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        </main>
+          
+          <Footer /> {/* ✅ AJOUT */}
+        </div>
       </AuthProvider>
     </BrowserRouter>
   );

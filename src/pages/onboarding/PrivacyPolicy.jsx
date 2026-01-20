@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import OnboardingLayout from '../../components/OnboardingLayout';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
