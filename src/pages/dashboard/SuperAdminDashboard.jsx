@@ -92,18 +92,6 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="min-vh-100 bg-light">
-      {/* Navbar */}
-      <nav className="navbar navbar-dark bg-primary shadow-sm">
-        <Container fluid>
-          <span className="navbar-brand mb-0 h1">e-Learning Admin</span>
-          <div className="d-flex align-items-center">
-            <span className="text-white me-3">{user?.name}</span>
-            <Button variant="outline-light" size="sm" onClick={logout}>
-              Déconnexion
-            </Button>
-          </div>
-        </Container>
-      </nav>
 
       <Container fluid className="py-4">
         {/* Stats Cards */}

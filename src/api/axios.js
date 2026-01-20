@@ -16,12 +16,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('🚀 Requête envoyée:', config.method.toUpperCase(), config.url); // DEBUG
-    console.log('🔑 Token:', token ? 'Présent' : 'Absent'); // DEBUG
     return config;
   },
   (error) => {
-    console.error('❌ Erreur requête:', error); // DEBUG
     return Promise.reject(error);
   }
 );
@@ -29,23 +26,27 @@ api.interceptors.request.use(
 // Gérer les réponses et erreurs
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Réponse reçue:', response.status, response.config.url); // DEBUG
     return response;
   },
   (error) => {
-    console.error('❌ Erreur réponse:', error.response); // DEBUG
-    console.error('Status:', error.response?.status); // DEBUG
-    console.error('Data:', error.response?.data); // DEBUG
-    
-    // NE DÉCONNECTER QUE si c'est vraiment une erreur d'authentification
+    // Seulement déconnecter en cas de 401 sur les routes protégées
+    // ET si ce n'est pas une route de login/register
     if (error.response?.status === 401) {
-      console.error('🚫 Erreur 401 - Déconnexion'); // DEBUG
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const isAuthRoute = error.config.url?.includes('/auth/login') || 
+                         error.config.url?.includes('/auth/register');
+      
+      if (!isAuthRoute) {
+        console.error('🚫 Session expirée - Déconnexion');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Rediriger seulement si on n'est pas déjà sur login
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
     }
     
-    // Pour les autres erreurs, NE PAS déconnecter
     return Promise.reject(error);
   }
 );

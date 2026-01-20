@@ -18,36 +18,53 @@ export const AuthProvider = ({ children }) => {
 
   // Charger l'utilisateur au montage
   useEffect(() => {
-    if (token) {
-      fetchUser();
-    } else {
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedToken) {
+        try {
+          // Vérifier que le token est valide
+          const response = await api.get('/me');
+          setUser(response.data.user);
+          setToken(storedToken);
+        } catch (error) {
+          console.error('Token invalide, déconnexion:', error);
+          // Token invalide, nettoyer
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        }
+      }
+      
       setLoading(false);
-    }
-  }, [token]);
+    };
+
+    initAuth();
+  }, []);
 
   const fetchUser = async () => {
     try {
       const response = await api.get('/me');
       setUser(response.data.user);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'utilisateur:', error);
-      logout();
-    } finally {
-      setLoading(false);
+      // Ne pas logout automatiquement ici
     }
   };
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    const { token, user } = response.data;
+    const { token: newToken, user: newUser } = response.data;
     
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
     
-    setToken(token);
-    setUser(user);
+    setToken(newToken);
+    setUser(newUser);
     
-    return user;
+    return newUser;
   };
 
   const register = async (name, email, password, password_confirmation) => {

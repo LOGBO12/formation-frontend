@@ -68,19 +68,6 @@ const fetchData = async () => {
 
   return (
     <div className="min-vh-100 bg-light">
-      {/* Navbar */}
-      <nav className="navbar navbar-dark bg-success shadow-sm">
-        <Container fluid>
-          <span className="navbar-brand mb-0 h1">e-Learning Formateur</span>
-          <div className="d-flex align-items-center">
-            <span className="text-white me-3">{user?.name}</span>
-            <Button variant="outline-light" size="sm" onClick={logout}>
-              Déconnexion
-            </Button>
-          </div>
-        </Container>
-      </nav>
-
       <Container fluid className="py-4">
         {/* Welcome Banner */}
         <Card className="bg-gradient mb-4 border-0 text-white" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
