@@ -24,13 +24,15 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import FormateurDashboard from './pages/dashboard/FormateurDashboard';
 import ApprenantDashboard from './pages/dashboard/ApprenantDashboard';
 
-// Import des nouvelles pages admin
+// Admin Pages
 import DomainesManagement from './pages/admin/DomainesManagement';
 import UsersManagement from './pages/admin/UsersManagement';
 import FormationsManagement from './pages/admin/FormationsManagement';
 
-
 // Formateur Pages
+import FormationsPage from './pages/formateur/FormationsPage';
+import ApprenantsPage from './pages/formateur/ApprenantsPage';
+import StatistiquesPage from './pages/formateur/StatistiquesPage';
 import CreateFormation from './pages/formateur/CreateFormation';
 import ManageFormation from './pages/formateur/ManageFormation';
 import ManageModule from './pages/formateur/ManageModule';
@@ -43,7 +45,7 @@ import CommunauteModeration from './pages/communaute/CommunauteModeration';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// Layout wrapper pour gérer la navbar conditionnellement
+// Layout wrapper
 function Layout({ children }) {
   const { user } = useAuth();
   
@@ -121,7 +123,59 @@ function App() {
               }
             />
 
-            {/* Formateur Routes */}
+            {/* Admin Routes */}
+            <Route
+              path="/admin/domaines"
+              element={
+                <PrivateRoute>
+                  <DomainesManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/utilisateurs"
+              element={
+                <PrivateRoute>
+                  <UsersManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/formations"
+              element={
+                <PrivateRoute>
+                  <FormationsManagement />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Formateur Routes - Pages principales */}
+            <Route
+              path="/formateur/formations"
+              element={
+                <PrivateRoute>
+                  <FormationsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/formateur/apprenants"
+              element={
+                <PrivateRoute>
+                  <ApprenantsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/formateur/statistiques"
+              element={
+                <PrivateRoute>
+                  <StatistiquesPage />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Formateur Routes - Gestion formations */}
             <Route
               path="/formateur/formations/create"
               element={
@@ -172,30 +226,6 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route
-  path="/admin/domaines"
-  element={
-    <PrivateRoute>
-      <DomainesManagement />
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/admin/utilisateurs"
-  element={
-    <PrivateRoute>
-      <UsersManagement />
-    </PrivateRoute>
-  }
-/>
-<Route
-  path="/admin/formations"
-  element={
-    <PrivateRoute>
-      <FormationsManagement />
-    </PrivateRoute>
-  }
-/>
             <Route
               path="/formateur/communaute/:id/moderation"
               element={

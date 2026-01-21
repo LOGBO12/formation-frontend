@@ -11,7 +11,9 @@ import {
   User,
   Bell,
   MessageSquare,
-  GraduationCap
+  GraduationCap,
+  FolderOpen,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -20,7 +22,7 @@ import toast from 'react-hot-toast';
 const NavbarComponent = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [notifications] = useState(0); // À implémenter plus tard
+  const [notifications] = useState(0);
 
   const handleLogout = async () => {
     try {
@@ -54,20 +56,19 @@ const NavbarComponent = () => {
     if (!user) return [];
 
     switch (user.role) {
-      // Dans getNavLinks(), section super_admin:
-        case 'super_admin':
+      case 'super_admin':
         return [
-            { to: '/dashboard/admin', icon: Home, label: 'Dashboard' },
-            { to: '/admin/domaines', icon: Settings, label: 'Domaines' },
-            { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
-            { to: '/admin/formations', icon: BookOpen, label: 'Formations' },
+          { to: '/dashboard/admin', icon: Home, label: 'Dashboard' },
+          { to: '/admin/domaines', icon: FolderOpen, label: 'Domaines' },
+          { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
+          { to: '/admin/formations', icon: BookOpen, label: 'Formations' },
         ];
       
       case 'formateur':
         return [
           { to: '/dashboard/formateur', icon: Home, label: 'Dashboard' },
           { to: '/formateur/formations', icon: BookOpen, label: 'Mes Formations' },
-          { to: '/formateur/apprenants', icon: Users, label: 'Apprenants' },
+          { to: '/formateur/apprenants', icon: UserCheck, label: 'Apprenants' },
           { to: '/formateur/statistiques', icon: BarChart3, label: 'Statistiques' },
         ];
       
