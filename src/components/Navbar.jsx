@@ -54,12 +54,13 @@ const NavbarComponent = () => {
     if (!user) return [];
 
     switch (user.role) {
-      case 'super_admin':
+      // Dans getNavLinks(), section super_admin:
+        case 'super_admin':
         return [
-          { to: '/dashboard/admin', icon: Home, label: 'Dashboard' },
-          { to: '/admin/domaines', icon: Settings, label: 'Domaines' },
-          { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
-          { to: '/admin/formations', icon: BookOpen, label: 'Formations' },
+            { to: '/dashboard/admin', icon: Home, label: 'Dashboard' },
+            { to: '/admin/domaines', icon: Settings, label: 'Domaines' },
+            { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
+            { to: '/admin/formations', icon: BookOpen, label: 'Formations' },
         ];
       
       case 'formateur':

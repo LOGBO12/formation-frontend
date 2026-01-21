@@ -24,6 +24,12 @@ import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
 import FormateurDashboard from './pages/dashboard/FormateurDashboard';
 import ApprenantDashboard from './pages/dashboard/ApprenantDashboard';
 
+// Import des nouvelles pages admin
+import DomainesManagement from './pages/admin/DomainesManagement';
+import UsersManagement from './pages/admin/UsersManagement';
+import FormationsManagement from './pages/admin/FormationsManagement';
+
+
 // Formateur Pages
 import CreateFormation from './pages/formateur/CreateFormation';
 import ManageFormation from './pages/formateur/ManageFormation';
@@ -166,6 +172,30 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+  path="/admin/domaines"
+  element={
+    <PrivateRoute>
+      <DomainesManagement />
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/admin/utilisateurs"
+  element={
+    <PrivateRoute>
+      <UsersManagement />
+    </PrivateRoute>
+  }
+/>
+<Route
+  path="/admin/formations"
+  element={
+    <PrivateRoute>
+      <FormationsManagement />
+    </PrivateRoute>
+  }
+/>
             <Route
               path="/formateur/communaute/:id/moderation"
               element={
