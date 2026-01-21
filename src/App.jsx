@@ -39,6 +39,12 @@ import ManageModule from './pages/formateur/ManageModule';
 import EditChapitre from './pages/formateur/EditChapitre';
 import ManageQuiz from './pages/formateur/ManageQuiz';
 
+// Apprenant Pages
+import MesFormations from './pages/apprenant/MesFormations';
+import CataloguePage from './pages/apprenant/CataloguePage';
+import ProgressionPage from './pages/apprenant/ProgressionPage';
+import CommunautesPage from './pages/apprenant/CommunautesPage';
+
 // Communauté Pages
 import CommunauteView from './pages/communaute/CommunauteView';
 import CommunauteModeration from './pages/communaute/CommunauteModeration';
@@ -213,6 +219,40 @@ function App() {
               element={
                 <PrivateRoute>
                   <EditChapitre />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Apprenant Routes */}
+            <Route
+              path="/apprenant/mes-formations"
+              element={
+                <PrivateRoute>
+                  <MesFormations />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/apprenant/catalogue"
+              element={
+                <PrivateRoute>
+                  <CataloguePage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/apprenant/progression"
+              element={
+                <PrivateRoute>
+                  <ProgressionPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/apprenant/communautes"
+              element={
+                <PrivateRoute>
+                  <CommunautesPage />
                 </PrivateRoute>
               }
             />

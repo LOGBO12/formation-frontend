@@ -13,7 +13,9 @@ import {
   MessageSquare,
   GraduationCap,
   FolderOpen,
-  UserCheck
+  UserCheck,
+  TrendingUp,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -75,8 +77,9 @@ const NavbarComponent = () => {
       case 'apprenant':
         return [
           { to: '/dashboard/apprenant', icon: Home, label: 'Dashboard' },
-          { to: '/apprenant/formations', icon: BookOpen, label: 'Mes Formations' },
-          { to: '/apprenant/progression', icon: GraduationCap, label: 'Ma Progression' },
+          { to: '/apprenant/mes-formations', icon: BookOpen, label: 'Mes Formations' },
+          { to: '/apprenant/catalogue', icon: Search, label: 'Catalogue' },
+          { to: '/apprenant/progression', icon: TrendingUp, label: 'Ma Progression' },
           { to: '/apprenant/communautes', icon: MessageSquare, label: 'Communautés' },
         ];
       
