@@ -20,7 +20,7 @@ import CompleteProfile from './pages/onboarding/CompleteProfile';
 import PrivacyPolicy from './pages/onboarding/PrivacyPolicy';
 
 // Dashboard Pages
-import SuperAdminDashboard from './pages/dashboard/SuperAdminDashboard';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import FormateurDashboard from './pages/dashboard/FormateurDashboard';
 import ApprenantDashboard from './pages/dashboard/ApprenantDashboard';
 
@@ -100,7 +100,7 @@ function App() {
               path="/dashboard/admin"
               element={
                 <PrivateRoute>
-                  <SuperAdminDashboard />
+                  <AdminDashboard />
                 </PrivateRoute>
               }
             />

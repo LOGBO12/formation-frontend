@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+ /** import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Table, Modal, Form, Badge } from 'react-bootstrap';
 import { Plus, Edit, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -94,7 +94,7 @@ const SuperAdminDashboard = () => {
     <div className="min-vh-100 bg-light">
 
       <Container fluid className="py-4">
-        {/* Stats Cards */}
+        {/* Stats Cards 
         <Row className="mb-4">
           <Col md={3}>
             <Card className="border-0 shadow-sm">
@@ -134,7 +134,7 @@ const SuperAdminDashboard = () => {
           </Col>
         </Row>
 
-        {/* Gestion des Domaines */}
+        {/* Gestion des Domaines 
         <Card className="border-0 shadow-sm">
           <Card.Header className="bg-white border-bottom">
             <div className="d-flex justify-content-between align-items-center">
@@ -200,7 +200,7 @@ const SuperAdminDashboard = () => {
         </Card>
       </Container>
 
-      {/* Modal Création/Edition */}
+      {/* Modal Création/Edition 
       <Modal show={showModal} onHide={handleCloseModal}>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -253,4 +253,4 @@ const SuperAdminDashboard = () => {
   );
 };
 
-export default SuperAdminDashboard;
+export default SuperAdminDashboard;   */
