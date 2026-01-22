@@ -210,12 +210,12 @@ const ApprenantDashboard = () => {
                         <h6 className="fw-bold mb-2">{formation.titre}</h6>
                         <p className="text-muted small mb-3">{formation.formateur}</p>
                         <ProgressBar 
-                          now={formation.progres} 
+                          now={parseFloat(formation.progres) || 0} 
                           variant="success"
                           className="mb-2"
                           style={{ height: '6px' }}
                         />
-                        <small className="text-muted">{formation.progres.toFixed(0)}% complété</small>
+                        <small className="text-muted">{parseFloat(formation.progres || 0).toFixed(0)}% complété</small>
                       </Card.Body>
                     </Card>
                   </Col>

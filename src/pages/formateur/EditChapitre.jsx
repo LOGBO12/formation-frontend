@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Card, Form, Button, Modal, ButtonGroup } from 'react-bootstrap';
-import { ArrowLeft, Save, Eye, Bold, Italic, List, Link as LinkIcon } from 'lucide-react';
+import { 
+  ArrowLeft, Save, Eye, Bold, Italic, List, ListOrdered,
+  AlignLeft, AlignCenter, AlignRight, Link2, Image, Code, Quote
+} from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -12,6 +15,12 @@ const EditChapitre = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const editorRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
@@ -49,32 +58,64 @@ const EditChapitre = () => {
     }
   };
 
-  const insertFormatting = (before, after = '') => {
-    const textarea = document.getElementById('contenu-textarea');
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = formData.contenu.substring(start, end);
-    const newText = formData.contenu.substring(0, start) + before + selectedText + after + formData.contenu.substring(end);
-    
-    setFormData({ ...formData, contenu: newText });
-    
-    // Repositionner le curseur
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-    }, 0);
+  // ============ FONCTIONS DE L'ÉDITEUR RICHE ============
+  
+  const execCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
   };
-
-  const formatButtons = [
-    { icon: Bold, label: 'Gras', before: '<strong>', after: '</strong>' },
-    { icon: Italic, label: 'Italique', before: '<em>', after: '</em>' },
-    { icon: List, label: 'Liste', before: '<ul>\n<li>', after: '</li>\n</ul>' },
-    { icon: LinkIcon, label: 'Lien', before: '<a href="URL">', after: '</a>' },
-  ];
 
   const insertHeading = (level) => {
-    insertFormatting(`<h${level}>`, `</h${level}>`);
+    execCommand('formatBlock', `<h${level}>`);
   };
+
+  const insertLink = () => {
+    if (linkUrl) {
+      const selection = window.getSelection().toString();
+      const linkText = selection || 'lien';
+      const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" class="text-primary">${linkText}</a>`;
+      execCommand('insertHTML', html);
+      setLinkUrl('');
+      setShowLinkModal(false);
+    }
+  };
+
+  const insertImage = () => {
+    if (imageUrl) {
+      const html = `<img src="${imageUrl}" class="img-fluid my-3 rounded" style="max-width: 100%;" alt="Image" />`;
+      execCommand('insertHTML', html);
+      setImageUrl('');
+      setShowImageModal(false);
+    }
+  };
+
+  const insertCodeBlock = () => {
+    const html = `<pre class="bg-light p-3 rounded border my-3"><code contenteditable="true">// Votre code ici</code></pre>`;
+    execCommand('insertHTML', html);
+  };
+
+  const insertQuote = () => {
+    const html = `<blockquote class="border-start border-primary border-4 ps-3 py-2 my-3 bg-light"><p contenteditable="true">Votre citation...</p></blockquote>`;
+    execCommand('insertHTML', html);
+  };
+
+  const insertTable = () => {
+    const html = `
+      <table class="table table-bordered my-3">
+        <thead><tr>
+          <th contenteditable="true">En-tête 1</th>
+          <th contenteditable="true">En-tête 2</th>
+        </tr></thead>
+        <tbody><tr>
+          <td contenteditable="true">Cellule 1</td>
+          <td contenteditable="true">Cellule 2</td>
+        </tr></tbody>
+      </table>
+    `;
+    execCommand('insertHTML', html);
+  };
+
+  // ============ FIN FONCTIONS ÉDITEUR ============
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,7 +128,9 @@ const EditChapitre = () => {
     data.append('is_preview', formData.is_preview ? '1' : '0');
 
     if (formData.type === 'texte') {
-      data.append('contenu', formData.contenu);
+      // Récupérer le HTML de l'éditeur
+      const htmlContent = editorRef.current?.innerHTML || formData.contenu;
+      data.append('contenu', htmlContent);
     } else if (formData.fichier) {
       data.append('fichier', formData.fichier);
     }
@@ -117,6 +160,18 @@ const EditChapitre = () => {
     );
   }
 
+  const ToolButton = ({ onClick, title, icon: Icon }) => (
+    <Button
+      variant="outline-secondary"
+      size="sm"
+      onClick={onClick}
+      title={title}
+      className="p-2"
+    >
+      <Icon size={18} />
+    </Button>
+  );
+
   return (
     <div className="min-vh-100 bg-light">
       <nav className="navbar navbar-dark bg-success shadow-sm">
@@ -136,9 +191,9 @@ const EditChapitre = () => {
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h4>Modification : {chapitre.titre}</h4>
               {formData.type === 'texte' && (
-                <Button variant="outline-primary" onClick={() => setShowPreview(true)}>
+                <Button variant="outline-primary" onClick={() => setShowPreview(!showPreview)}>
                   <Eye size={18} className="me-2" />
-                  Prévisualiser
+                  {showPreview ? 'Éditer' : 'Prévisualiser'}
                 </Button>
               )}
             </div>
@@ -165,57 +220,92 @@ const EditChapitre = () => {
               </Form.Group>
 
               {formData.type === 'texte' && (
-                <Form.Group className="mb-3">
-                  <Form.Label>Contenu</Form.Label>
-                  
-                  {/* Barre d'outils de formatage */}
-                  <div className="mb-2 p-2 bg-light border rounded">
-                    <ButtonGroup className="me-2 mb-2">
-                      <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(1)} title="Titre 1">
-                        H1
-                      </Button>
-                      <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(2)} title="Titre 2">
-                        H2
-                      </Button>
-                      <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(3)} title="Titre 3">
-                        H3
-                      </Button>
-                    </ButtonGroup>
-                    
-                    <ButtonGroup className="mb-2">
-                      {formatButtons.map((btn, idx) => (
-                        <Button
-                          key={idx}
-                          variant="outline-secondary"
-                          size="sm"
-                          onClick={() => insertFormatting(btn.before, btn.after)}
-                          title={btn.label}
-                        >
-                          <btn.icon size={16} />
-                        </Button>
-                      ))}
-                    </ButtonGroup>
-                    
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        Sélectionnez du texte et cliquez sur un bouton pour le formatter
-                      </small>
-                    </div>
-                  </div>
+                <>
+                  {/* ========= BARRE D'OUTILS DE L'ÉDITEUR RICHE ========= */}
+                  <Card className="mb-3">
+                    <Card.Body className="p-2">
+                      <div className="d-flex flex-wrap gap-2">
+                        {/* Titres */}
+                        <div className="btn-group">
+                          <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(1)} title="Titre 1">H1</Button>
+                          <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(2)} title="Titre 2">H2</Button>
+                          <Button variant="outline-secondary" size="sm" onClick={() => insertHeading(3)} title="Titre 3">H3</Button>
+                        </div>
 
-                  <Form.Control
-                    id="contenu-textarea"
-                    as="textarea"
-                    rows={15}
-                    value={formData.contenu}
-                    onChange={(e) => setFormData({ ...formData, contenu: e.target.value })}
-                    placeholder="Écrivez votre contenu ici. Vous pouvez utiliser du HTML..."
-                    style={{ fontFamily: 'monospace', fontSize: '14px' }}
-                  />
-                  <Form.Text className="text-muted">
-                    Vous pouvez utiliser du HTML : &lt;p&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;a&gt;, etc.
-                  </Form.Text>
-                </Form.Group>
+                        {/* Formatage */}
+                        <div className="btn-group">
+                          <ToolButton onClick={() => execCommand('bold')} title="Gras" icon={Bold} />
+                          <ToolButton onClick={() => execCommand('italic')} title="Italique" icon={Italic} />
+                        </div>
+
+                        {/* Listes */}
+                        <div className="btn-group">
+                          <ToolButton onClick={() => execCommand('insertUnorderedList')} title="Liste à puces" icon={List} />
+                          <ToolButton onClick={() => execCommand('insertOrderedList')} title="Liste numérotée" icon={ListOrdered} />
+                        </div>
+
+                        {/* Alignement */}
+                        <div className="btn-group">
+                          <ToolButton onClick={() => execCommand('justifyLeft')} title="Aligner à gauche" icon={AlignLeft} />
+                          <ToolButton onClick={() => execCommand('justifyCenter')} title="Centrer" icon={AlignCenter} />
+                          <ToolButton onClick={() => execCommand('justifyRight')} title="Aligner à droite" icon={AlignRight} />
+                        </div>
+
+                        {/* Éléments spéciaux */}
+                        <div className="btn-group">
+                          <ToolButton onClick={() => setShowLinkModal(true)} title="Lien" icon={Link2} />
+                          <ToolButton onClick={() => setShowImageModal(true)} title="Image" icon={Image} />
+                          <ToolButton onClick={insertCodeBlock} title="Code" icon={Code} />
+                          <ToolButton onClick={insertQuote} title="Citation" icon={Quote} />
+                        </div>
+
+                        {/* Tableau */}
+                        <Button size="sm" variant="outline-secondary" onClick={insertTable}>
+                          Tableau
+                        </Button>
+                        
+                        {/* Effacer formatage */}
+                        <Button size="sm" variant="outline-secondary" onClick={() => execCommand('removeFormat')}>
+                          Effacer format
+                        </Button>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                  {/* ========= FIN BARRE D'OUTILS ========= */}
+
+                  {/* Zone d'édition */}
+                  <Form.Group className="mb-3">
+                    <Form.Label>Contenu</Form.Label>
+                    {!showPreview ? (
+                      <div
+                        ref={editorRef}
+                        contentEditable
+                        className="form-control editor-content"
+                        style={{
+                          minHeight: '400px',
+                          maxHeight: '600px',
+                          overflowY: 'auto',
+                          lineHeight: '1.8',
+                          fontSize: '16px',
+                          padding: '20px'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: formData.contenu }}
+                        onInput={(e) => setFormData({ ...formData, contenu: e.currentTarget.innerHTML })}
+                      />
+                    ) : (
+                      <div 
+                        className="border rounded p-4 preview-content"
+                        style={{
+                          minHeight: '400px',
+                          lineHeight: '1.8',
+                          fontSize: '16px',
+                          backgroundColor: '#f8f9fa'
+                        }}
+                        dangerouslySetInnerHTML={{ __html: formData.contenu }}
+                      />
+                    )}
+                  </Form.Group>
+                </>
               )}
 
               {(formData.type === 'video' || formData.type === 'pdf') && (
@@ -245,7 +335,7 @@ const EditChapitre = () => {
               <Form.Group className="mb-4">
                 <Form.Check
                   type="checkbox"
-                  label="Aperçu gratuit (visible avant achat)"
+                  label="Aperçu gratuit (visible avant inscription)"
                   checked={formData.is_preview}
                   onChange={(e) => setFormData({ ...formData, is_preview: e.target.checked })}
                 />
@@ -265,23 +355,127 @@ const EditChapitre = () => {
         </Card>
       </Container>
 
-      {/* Modal Prévisualisation */}
-      <Modal show={showPreview} onHide={() => setShowPreview(false)} size="lg">
+      {/* Modal pour liens */}
+      <Modal show={showLinkModal} onHide={() => setShowLinkModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Prévisualisation</Modal.Title>
+          <Modal.Title>Insérer un lien</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <h3>{formData.titre}</h3>
-          {formData.description && <p className="text-muted">{formData.description}</p>}
-          <hr />
-          <div dangerouslySetInnerHTML={{ __html: formData.contenu }} style={{ lineHeight: '1.6' }} />
+          <Form.Group>
+            <Form.Label>URL du lien</Form.Label>
+            <Form.Control
+              type="url"
+              placeholder="https://exemple.com"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && insertLink()}
+            />
+            <Form.Text className="text-muted">
+              Sélectionnez du texte avant d'insérer le lien
+            </Form.Text>
+          </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowPreview(false)}>
-            Fermer
-          </Button>
+          <Button variant="secondary" onClick={() => setShowLinkModal(false)}>Annuler</Button>
+          <Button variant="primary" onClick={insertLink}>Insérer</Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Modal pour images */}
+      <Modal show={showImageModal} onHide={() => setShowImageModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Insérer une image</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>URL de l'image</Form.Label>
+            <Form.Control
+              type="url"
+              placeholder="https://exemple.com/image.jpg"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && insertImage()}
+            />
+            <Form.Text className="text-muted">
+              L'image sera automatiquement redimensionnée
+            </Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImageModal(false)}>Annuler</Button>
+          <Button variant="primary" onClick={insertImage}>Insérer</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Styles CSS pour l'éditeur */}
+      <style>{`
+        .editor-content {
+          outline: none;
+        }
+        .editor-content:focus {
+          border-color: #86b7fe;
+          box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .editor-content h1,
+        .preview-content h1 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin: 1.5rem 0 1rem;
+        }
+        .editor-content h2,
+        .preview-content h2 {
+          font-size: 2rem;
+          font-weight: 600;
+          margin: 1.5rem 0 1rem;
+        }
+        .editor-content h3,
+        .preview-content h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin: 1.5rem 0 1rem;
+        }
+        .editor-content p,
+        .preview-content p {
+          margin-bottom: 1rem;
+        }
+        .editor-content pre,
+        .preview-content pre {
+          background-color: #f8f9fa;
+          padding: 1rem;
+          border-radius: 0.375rem;
+          overflow-x: auto;
+        }
+        .editor-content blockquote,
+        .preview-content blockquote {
+          border-left: 4px solid #0d6efd;
+          padding-left: 1rem;
+          margin: 1rem 0;
+        }
+        .editor-content img,
+        .preview-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.375rem;
+          margin: 1rem 0;
+        }
+        .editor-content table,
+        .preview-content table {
+          width: 100%;
+          margin: 1rem 0;
+        }
+        .editor-content table th,
+        .editor-content table td,
+        .preview-content table th,
+        .preview-content table td {
+          padding: 0.75rem;
+          border: 1px solid #dee2e6;
+        }
+        .editor-content table th,
+        .preview-content table th {
+          background-color: #f8f9fa;
+          font-weight: 600;
+        }
+      `}</style>
     </div>
   );
 };

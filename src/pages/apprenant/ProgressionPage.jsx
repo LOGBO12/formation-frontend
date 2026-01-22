@@ -45,7 +45,7 @@ const ProgressionPage = () => {
   // Données pour le graphique à barres
   const barData = progressionDetails.map(p => ({
     name: p.formation_titre.length > 20 ? p.formation_titre.substring(0, 20) + '...' : p.formation_titre,
-    progres: parseFloat(p.progres_global)
+    progres: parseFloat(p.progres_global || 0)
   }));
 
   return (
@@ -223,71 +223,79 @@ const ProgressionPage = () => {
               <p className="text-muted text-center py-4">Aucune formation inscrite</p>
             ) : (
               <Accordion>
-                {progressionDetails.map((formation, index) => (
-                  <Accordion.Item eventKey={index.toString()} key={formation.formation_id}>
-                    <Accordion.Header>
-                      <div className="d-flex justify-content-between align-items-center w-100 me-3">
-                        <div>
-                          <strong>{formation.formation_titre}</strong>
-                          <div className="text-muted small">{formation.domaine}</div>
-                        </div>
-                        <div className="text-end">
-                          <Badge bg={formation.progres_global >= 100 ? 'success' : 'primary'}>
-                            {formation.progres_global.toFixed(0)}%
-                          </Badge>
-                        </div>
-                      </div>
-                    </Accordion.Header>
-                    <Accordion.Body>
-                      <div className="mb-3">
-                        <div className="d-flex justify-content-between mb-2">
-                          <span className="text-muted">Progression globale</span>
-                          <span className="fw-bold">
-                            {formation.chapitres_completes}/{formation.total_chapitres} chapitres
-                          </span>
-                        </div>
-                        <ProgressBar
-                          now={formation.progres_global}
-                          variant={formation.progres_global >= 100 ? 'success' : 'primary'}
-                          style={{ height: '10px' }}
-                          className="rounded-pill"
-                        />
-                      </div>
-
-                      <h6 className="fw-bold mb-3">Modules</h6>
-                      {formation.modules.map(module => (
-                        <div key={module.module_id} className="mb-3 p-3 bg-light rounded">
-                          <div className="d-flex justify-content-between mb-2">
-                            <strong>{module.module_titre}</strong>
-                            <Badge bg={module.progres >= 100 ? 'success' : 'info'}>
-                              {module.progres.toFixed(0)}%
+                {progressionDetails.map((formation, index) => {
+                  const progresGlobal = parseFloat(formation.progres_global || 0);
+                  
+                  return (
+                    <Accordion.Item eventKey={index.toString()} key={formation.formation_id}>
+                      <Accordion.Header>
+                        <div className="d-flex justify-content-between align-items-center w-100 me-3">
+                          <div>
+                            <strong>{formation.formation_titre}</strong>
+                            <div className="text-muted small">{formation.domaine}</div>
+                          </div>
+                          <div className="text-end">
+                            <Badge bg={progresGlobal >= 100 ? 'success' : 'primary'}>
+                              {progresGlobal.toFixed(0)}%
                             </Badge>
                           </div>
-                          <div className="d-flex align-items-center mb-2">
-                            <CheckCircle
-                              size={16}
-                              className={module.progres >= 100 ? 'text-success' : 'text-muted'}
-                            />
-                            <span className="ms-2 small text-muted">
-                              {module.chapitres_completes}/{module.total_chapitres} chapitres complétés
+                        </div>
+                      </Accordion.Header>
+                      <Accordion.Body>
+                        <div className="mb-3">
+                          <div className="d-flex justify-content-between mb-2">
+                            <span className="text-muted">Progression globale</span>
+                            <span className="fw-bold">
+                              {formation.chapitres_completes}/{formation.total_chapitres} chapitres
                             </span>
                           </div>
                           <ProgressBar
-                            now={module.progres}
-                            variant={module.progres >= 100 ? 'success' : 'info'}
-                            style={{ height: '6px' }}
+                            now={progresGlobal}
+                            variant={progresGlobal >= 100 ? 'success' : 'primary'}
+                            style={{ height: '10px' }}
                             className="rounded-pill"
                           />
                         </div>
-                      ))}
 
-                      <div className="mt-3 text-muted small">
-                        <div>📅 Inscrit le: {new Date(formation.date_inscription).toLocaleDateString('fr-FR')}</div>
-                        <div>🕐 Dernière activité: {new Date(formation.derniere_activite).toLocaleDateString('fr-FR')}</div>
-                      </div>
-                    </Accordion.Body>
-                  </Accordion.Item>
-                ))}
+                        <h6 className="fw-bold mb-3">Modules</h6>
+                        {formation.modules.map(module => {
+                          const progresModule = parseFloat(module.progres || 0);
+                          
+                          return (
+                            <div key={module.module_id} className="mb-3 p-3 bg-light rounded">
+                              <div className="d-flex justify-content-between mb-2">
+                                <strong>{module.module_titre}</strong>
+                                <Badge bg={progresModule >= 100 ? 'success' : 'info'}>
+                                  {progresModule.toFixed(0)}%
+                                </Badge>
+                              </div>
+                              <div className="d-flex align-items-center mb-2">
+                                <CheckCircle
+                                  size={16}
+                                  className={progresModule >= 100 ? 'text-success' : 'text-muted'}
+                                />
+                                <span className="ms-2 small text-muted">
+                                  {module.chapitres_completes}/{module.total_chapitres} chapitres complétés
+                                </span>
+                              </div>
+                              <ProgressBar
+                                now={progresModule}
+                                variant={progresModule >= 100 ? 'success' : 'info'}
+                                style={{ height: '6px' }}
+                                className="rounded-pill"
+                              />
+                            </div>
+                          );
+                        })}
+
+                        <div className="mt-3 text-muted small">
+                          <div>📅 Inscrit le: {new Date(formation.date_inscription).toLocaleDateString('fr-FR')}</div>
+                          <div>🕐 Dernière activité: {new Date(formation.derniere_activite).toLocaleDateString('fr-FR')}</div>
+                        </div>
+                      </Accordion.Body>
+                    </Accordion.Item>
+                  );
+                })}
               </Accordion>
             )}
           </Card.Body>

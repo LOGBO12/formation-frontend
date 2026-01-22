@@ -37,9 +37,9 @@ const MesFormations = () => {
 
     // Filtre par statut
     if (activeTab === 'en_cours') {
-      filtered = filtered.filter(f => f.progres < 100);
+      filtered = filtered.filter(f => parseFloat(f.progres || 0) < 100);
     } else if (activeTab === 'terminees') {
-      filtered = filtered.filter(f => f.progres >= 100);
+      filtered = filtered.filter(f => parseFloat(f.progres || 0) >= 100);
     }
 
     // Filtre par recherche
@@ -61,8 +61,8 @@ const MesFormations = () => {
     );
   }
 
-  const enCours = formations.filter(f => f.progres < 100).length;
-  const terminees = formations.filter(f => f.progres >= 100).length;
+  const enCours = formations.filter(f => parseFloat(f.progres || 0) < 100).length;
+  const terminees = formations.filter(f => parseFloat(f.progres || 0) >= 100).length;
 
   return (
     <div className="min-vh-100 bg-light">
@@ -175,83 +175,88 @@ const MesFormations = () => {
           </Card>
         ) : (
           <Row>
-            {filteredFormations.map((item) => (
-              <Col lg={4} md={6} key={item.inscription_id} className="mb-4">
-                <Card className="h-100 border-0 shadow-sm hover-card">
-                  {item.formation.image && (
-                    <div style={{ position: 'relative' }}>
-                      <Card.Img
-                        variant="top"
-                        src={`${import.meta.env.VITE_API_URL}/storage/${item.formation.image}`}
-                        style={{ height: '200px', objectFit: 'cover' }}
-                      />
-                      {item.is_completed && (
-                        <Badge 
-                          bg="success" 
-                          className="position-absolute top-0 end-0 m-3"
-                        >
-                          <Award size={14} className="me-1" />
-                          Terminé
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  <Card.Body>
-                    <div className="mb-2">
-                      <Badge bg="info">{item.formation.domaine.name}</Badge>
-                    </div>
-                    <h5 className="fw-bold mb-2">{item.formation.titre}</h5>
-                    <p className="text-muted small mb-3">
-                      Par {item.formation.formateur.name}
-                    </p>
-
-                    <div className="mb-3">
-                      <div className="d-flex justify-content-between mb-2">
-                        <small className="text-muted">Progression</small>
-                        <small className="fw-bold text-success">
-                          {item.chapitres_completes}/{item.total_chapitres} chapitres
-                        </small>
+            {filteredFormations.map((item) => {
+              const progres = parseFloat(item.progres || 0);
+              const isCompleted = progres >= 100;
+              
+              return (
+                <Col lg={4} md={6} key={item.inscription_id} className="mb-4">
+                  <Card className="h-100 border-0 shadow-sm hover-card">
+                    {item.formation.image && (
+                      <div style={{ position: 'relative' }}>
+                        <Card.Img
+                          variant="top"
+                          src={`${import.meta.env.VITE_API_URL}/storage/${item.formation.image}`}
+                          style={{ height: '200px', objectFit: 'cover' }}
+                        />
+                        {isCompleted && (
+                          <Badge 
+                            bg="success" 
+                            className="position-absolute top-0 end-0 m-3"
+                          >
+                            <Award size={14} className="me-1" />
+                            Terminé
+                          </Badge>
+                        )}
                       </div>
-                      <ProgressBar
-                        now={item.progres}
-                        variant={item.progres >= 100 ? 'success' : 'primary'}
-                        style={{ height: '8px' }}
-                        className="rounded-pill"
-                      />
-                      <div className="text-center mt-2">
-                        <small className="text-muted">{item.progres.toFixed(1)}%</small>
+                    )}
+                    <Card.Body>
+                      <div className="mb-2">
+                        <Badge bg="info">{item.formation.domaine.name}</Badge>
                       </div>
-                    </div>
+                      <h5 className="fw-bold mb-2">{item.formation.titre}</h5>
+                      <p className="text-muted small mb-3">
+                        Par {item.formation.formateur.name}
+                      </p>
 
-                    <div className="d-flex justify-content-between text-muted small mb-3">
-                      <span>
-                        <Clock size={14} className="me-1" />
-                        Dernière activité
-                      </span>
-                      <span>
-                        {new Date(item.derniere_activite).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                  </Card.Body>
-                  <Card.Footer className="bg-white border-top">
-                    <Button
-                      variant={item.is_completed ? 'outline-success' : 'primary'}
-                      className="w-100"
-                      onClick={() => navigate(`/apprenant/formations/${item.formation.id}`)}
-                    >
-                      {item.is_completed ? (
-                        <>Revoir le cours</>
-                      ) : (
-                        <>
-                          Continuer
-                          <ArrowRight size={18} className="ms-2" />
-                        </>
-                      )}
-                    </Button>
-                  </Card.Footer>
-                </Card>
-              </Col>
-            ))}
+                      <div className="mb-3">
+                        <div className="d-flex justify-content-between mb-2">
+                          <small className="text-muted">Progression</small>
+                          <small className="fw-bold text-success">
+                            {item.chapitres_completes}/{item.total_chapitres} chapitres
+                          </small>
+                        </div>
+                        <ProgressBar
+                          now={progres}
+                          variant={isCompleted ? 'success' : 'primary'}
+                          style={{ height: '8px' }}
+                          className="rounded-pill"
+                        />
+                        <div className="text-center mt-2">
+                          <small className="text-muted">{progres.toFixed(1)}%</small>
+                        </div>
+                      </div>
+
+                      <div className="d-flex justify-content-between text-muted small mb-3">
+                        <span>
+                          <Clock size={14} className="me-1" />
+                          Dernière activité
+                        </span>
+                        <span>
+                          {new Date(item.derniere_activite).toLocaleDateString('fr-FR')}
+                        </span>
+                      </div>
+                    </Card.Body>
+                    <Card.Footer className="bg-white border-top">
+                      <Button
+                        variant={isCompleted ? 'outline-success' : 'primary'}
+                        className="w-100"
+                        onClick={() => navigate(`/apprenant/formations/${item.formation.id}`)}
+                      >
+                        {isCompleted ? (
+                          <>Revoir le cours</>
+                        ) : (
+                          <>
+                            Continuer
+                            <ArrowRight size={18} className="ms-2" />
+                          </>
+                        )}
+                      </Button>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              );
+            })}
           </Row>
         )}
       </Container>
