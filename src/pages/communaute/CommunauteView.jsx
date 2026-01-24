@@ -1,159 +1,94 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Form, Button, Badge, Alert, Modal } from 'react-bootstrap';
-import { ArrowLeft, Send, Pin, Trash2, Users, Settings, Megaphone } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import api from '../../api/axios';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Container, Row, Col, Card, Form, Button, Badge, Modal, 
+  Dropdown, OverlayTrigger, Tooltip, Spinner 
+} from 'react-bootstrap';
+import { 
+  Send, ImageIcon, Video, Mic, FileText, Paperclip,
+  Smile, MoreVertical, Reply, Edit3, Trash2, Pin, Eye,
+  ThumbsUp, Heart, Laugh, AlertCircle, PartyPopper, Flame, 
+  Hand, Download, Play, Pause, Volume2, VolumeX
+} from 'lucide-react';
 
 const CommunauteView = () => {
-  const { id } = useParams(); // ID de la communauté
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  const [communaute, setCommunaute] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [membres, setMembres] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isAnnonce, setIsAnnonce] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [showMembresModal, setShowMembresModal] = useState(false);
-  const [userIsMuted, setUserIsMuted] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [messageType, setMessageType] = useState('text');
+  const [isRecording, setIsRecording] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [showMediaModal, setShowMediaModal] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  
+  const fileInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    fetchData();
-    // Auto-refresh toutes les 15 secondes
-    const interval = setInterval(fetchMessages, 15000);
-    return () => clearInterval(interval);
-  }, [id]);
+  const reactions = [
+    { type: 'like', emoji: '👍' },
+    { type: 'love', emoji: '❤️' },
+    { type: 'laugh', emoji: '😂' },
+    { type: 'wow', emoji: '😮' },
+    { type: 'party', emoji: '🎉' },
+    { type: 'fire', emoji: '🔥' },
+    { type: 'clap', emoji: '👏' },
+  ];
 
-  const fetchData = async () => {
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const validFiles = files.filter(file => file.size <= 50 * 1024 * 1024);
+    setSelectedFiles([...selectedFiles, ...validFiles].slice(0, 5));
+  };
+
+  const startRecording = async () => {
     try {
-      const [communauteRes, messagesRes, membresRes] = await Promise.all([
-        api.get(`/communautes/${id}`),
-        api.get(`/communautes/${id}/messages`),
-        api.get(`/communautes/${id}/membres`),
-      ]);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
 
-      setCommunaute(communauteRes.data.communaute);
-      setMessages(messagesRes.data.messages);
-      setMembres(membresRes.data.membres);
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
+        setSelectedFiles([file]);
+        setMessageType('audio');
+      };
 
-      // Vérifier si l'utilisateur est muté
-      const currentMembre = membresRes.data.membres.find(m => m.id === user.id);
-      setUserIsMuted(currentMembre?.pivot?.is_muted || false);
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
     } catch (error) {
-      toast.error('Erreur lors du chargement');
-      navigate(-1);
-    } finally {
-      setLoading(false);
+      alert('Impossible d\'accéder au microphone');
     }
   };
 
-  const fetchMessages = async () => {
-    try {
-      const response = await api.get(`/communautes/${id}/messages`);
-      setMessages(response.data.messages);
-    } catch (error) {
-      console.error('Erreur refresh messages:', error);
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
     }
   };
 
-  const isFormateur = () => {
-    return membres.find(m => m.id === user.id)?.pivot?.role === 'admin';
-  };
-
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
+
+    console.log('Envoi message...', { message: newMessage, files: selectedFiles });
     
-    if (!newMessage.trim()) {
-      toast.error('Le message ne peut pas être vide');
-      return;
-    }
-
-    if (userIsMuted) {
-      toast.error('Vous ne pouvez pas envoyer de messages');
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      const endpoint = isAnnonce 
-        ? `/communautes/${id}/annonces` 
-        : `/communautes/${id}/messages`;
-      
-      await api.post(endpoint, { message: newMessage });
-      
-      toast.success(isAnnonce ? 'Annonce publiée' : 'Message envoyé');
-      setNewMessage('');
-      setIsAnnonce(false);
-      fetchMessages();
-    } catch (error) {
-      toast.error('Erreur lors de l\'envoi');
-    } finally {
-      setSending(false);
-    }
+    setNewMessage('');
+    setSelectedFiles([]);
+    setMessageType('text');
+    setReplyTo(null);
   };
 
-  const handlePinMessage = async (messageId, isPinned) => {
-    try {
-      const endpoint = isPinned 
-        ? `/messages/${messageId}/desepingler` 
-        : `/messages/${messageId}/epingler`;
-      
-      await api.post(endpoint);
-      toast.success(isPinned ? 'Message désépinglé' : 'Message épinglé');
-      fetchMessages();
-    } catch (error) {
-      toast.error('Erreur');
-    }
+  const handleReaction = async (messageId, reactionType) => {
+    console.log('Toggle reaction:', messageId, reactionType);
   };
 
-  const handleDeleteMessage = async (messageId) => {
-    if (!window.confirm('Supprimer ce message ?')) return;
-
-    try {
-      await api.delete(`/messages/${messageId}`);
-      toast.success('Message supprimé');
-      fetchMessages();
-    } catch (error) {
-      toast.error('Erreur lors de la suppression');
-    }
-  };
-
-  const getMessagesByType = () => {
-    const pinned = messages.filter(m => m.is_pinned);
-    const announcements = messages.filter(m => m.is_announcement && !m.is_pinned);
-    const regular = messages.filter(m => !m.is_pinned && !m.is_announcement);
-    
-    return { pinned, announcements, regular };
-  };
-
-  const formatDate = (date) => {
-    const now = new Date();
-    const messageDate = new Date(date);
-    const diffInMs = now - messageDate;
-    const diffInMinutes = Math.floor(diffInMs / 60000);
-    
-    if (diffInMinutes < 1) return 'À l\'instant';
-    if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `Il y a ${diffInHours}h`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `Il y a ${diffInDays}j`;
-    
-    return messageDate.toLocaleDateString('fr-FR');
-  };
-
-  const MessageCard = ({ message, showPin = true }) => {
-    const isAuthor = message.user_id === user.id;
-    const isAdmin = isFormateur();
-    const canDelete = isAuthor || isAdmin;
-    const canPin = isAdmin && showPin;
+  const MessageCard = ({ message }) => {
+    const [showReplies, setShowReplies] = useState(false);
 
     return (
       <Card className="mb-3 border-0 shadow-sm">
@@ -168,241 +103,375 @@ const CommunauteView = () => {
               </div>
               <div>
                 <strong>{message.user?.name}</strong>
-                {membres.find(m => m.id === message.user_id)?.pivot?.role === 'admin' && (
-                  <Badge bg="success" className="ms-2">Formateur</Badge>
-                )}
-                {message.is_announcement && (
-                  <Badge bg="danger" className="ms-2">
-                    <Megaphone size={12} className="me-1" />
-                    Annonce
+                {message.is_edited && (
+                  <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.7rem' }}>
+                    modifié
                   </Badge>
                 )}
-                {message.is_pinned && (
-                  <Badge bg="warning" className="ms-2">
-                    <Pin size={12} className="me-1" />
-                    Épinglé
-                  </Badge>
-                )}
-                <div className="text-muted small">{formatDate(message.created_at)}</div>
+                <div className="text-muted small">
+                  {new Date(message.created_at).toLocaleString('fr-FR')}
+                </div>
               </div>
             </div>
 
-            <div className="d-flex gap-2">
-              {canPin && (
-                <Button
-                  variant={message.is_pinned ? "warning" : "outline-warning"}
-                  size="sm"
-                  onClick={() => handlePinMessage(message.id, message.is_pinned)}
-                  title={message.is_pinned ? "Désépingler" : "Épingler"}
-                >
-                  <Pin size={16} />
-                </Button>
-              )}
-              {canDelete && (
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={() => handleDeleteMessage(message.id)}
-                  title="Supprimer"
-                >
-                  <Trash2 size={16} />
-                </Button>
-              )}
-            </div>
+            <Dropdown>
+              <Dropdown.Toggle variant="link" size="sm" className="text-muted">
+                <MoreVertical size={18} />
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => setReplyTo(message)}>
+                  <Reply size={16} className="me-2" />
+                  Répondre
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           </div>
 
-          <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-            {message.message}
-          </p>
+          {message.parent && (
+            <div className="bg-light p-2 rounded mb-2 small">
+              <Reply size={14} className="me-1" />
+              En réponse à <strong>{message.parent.user?.name}</strong>
+            </div>
+          )}
+
+          {message.message && (
+            <p className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+              {message.message}
+            </p>
+          )}
+
+          {message.type === 'image' && message.attachments && (
+            <div className="d-flex flex-wrap gap-2 mb-2">
+              {message.attachments.map((url, idx) => (
+                <img
+                  key={idx}
+                  src={url}
+                  alt="attachment"
+                  className="rounded"
+                  style={{ maxWidth: 200, maxHeight: 200, cursor: 'pointer' }}
+                  onClick={() => {
+                    setSelectedMedia({ type: 'image', url });
+                    setShowMediaModal(true);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {message.type === 'video' && message.attachments && (
+            <div className="mb-2">
+              {message.attachments.map((url, idx) => (
+                <video
+                  key={idx}
+                  controls
+                  style={{ maxWidth: '100%', borderRadius: 8 }}
+                >
+                  <source src={url} type="video/mp4" />
+                </video>
+              ))}
+            </div>
+          )}
+
+          {message.type === 'audio' && message.attachments && (
+            <div className="mb-2">
+              {message.attachments.map((url, idx) => (
+                <AudioPlayer key={idx} src={url} />
+              ))}
+            </div>
+          )}
+
+          {message.type === 'pdf' && message.attachments && (
+            <div className="mb-2">
+              {message.attachments.map((url, idx) => (
+                <Card key={idx} className="bg-light">
+                  <Card.Body className="d-flex align-items-center">
+                    <FileText size={32} className="text-danger me-3" />
+                    <div className="flex-grow-1">
+                      <strong>Document PDF</strong>
+                      <div className="text-muted small">
+                        {message.attachments_meta?.[idx]?.original_name}
+                      </div>
+                    </div>
+                    <Button variant="outline-primary" size="sm" as="a" href={url} download>
+                      <Download size={16} />
+                    </Button>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <div className="d-flex align-items-center gap-2 mb-2">
+            {message.grouped_reactions && Object.keys(message.grouped_reactions).length > 0 && (
+              <div className="d-flex gap-1">
+                {Object.entries(message.grouped_reactions).map(([type, count]) => {
+                  const reaction = reactions.find(r => r.type === type);
+                  return (
+                    <Button
+                      key={type}
+                      variant="light"
+                      size="sm"
+                      className={message.user_reactions?.includes(type) ? 'border-primary' : ''}
+                      onClick={() => handleReaction(message.id, type)}
+                    >
+                      {reaction?.emoji} {count}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
+            <Dropdown>
+              <Dropdown.Toggle variant="outline-secondary" size="sm">
+                <Smile size={16} />
+              </Dropdown.Toggle>
+              <Dropdown.Menu>
+                <div className="px-2">
+                  <div className="d-flex gap-2">
+                    {reactions.map(({ type, emoji }) => (
+                      <Button
+                        key={type}
+                        variant="light"
+                        size="sm"
+                        onClick={() => handleReaction(message.id, type)}
+                        style={{ fontSize: '1.2rem' }}
+                      >
+                        {emoji}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </Dropdown.Menu>
+            </Dropdown>
+
+            {message.replies_count > 0 && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => setShowReplies(!showReplies)}
+              >
+                {message.replies_count} réponse(s)
+              </Button>
+            )}
+
+            {message.views_count > 0 && (
+              <small className="text-muted ms-auto">
+                <Eye size={14} className="me-1" />
+                {message.views_count}
+              </small>
+            )}
+          </div>
+
+          {showReplies && message.replies && (
+            <div className="ps-4 border-start border-primary">
+              {message.replies.map(reply => (
+                <MessageCard key={reply.id} message={reply} />
+              ))}
+            </div>
+          )}
         </Card.Body>
       </Card>
     );
   };
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-success" role="status"></div>
-      </div>
-    );
-  }
+  const AudioPlayer = ({ src }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const audioRef = useRef(null);
 
-  const { pinned, announcements, regular } = getMessagesByType();
+    return (
+      <Card className="bg-light">
+        <Card.Body className="d-flex align-items-center gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              if (isPlaying) {
+                audioRef.current?.pause();
+              } else {
+                audioRef.current?.play();
+              }
+              setIsPlaying(!isPlaying);
+            }}
+          >
+            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+          </Button>
+          
+          <audio
+            ref={audioRef}
+            src={src}
+            onEnded={() => setIsPlaying(false)}
+            muted={isMuted}
+          />
+          
+          <div className="flex-grow-1">
+            <div className="bg-secondary rounded" style={{ height: 4 }}>
+              <div className="bg-primary rounded" style={{ height: 4, width: '40%' }} />
+            </div>
+          </div>
+          
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setIsMuted(!isMuted)}
+          >
+            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </Button>
+        </Card.Body>
+      </Card>
+    );
+  };
 
   return (
-    <div className="min-vh-100 bg-light">
-      {/* Navbar */}
-      <nav className="navbar navbar-dark bg-primary shadow-sm">
-        <Container fluid>
-          <Button variant="link" className="text-white" onClick={() => navigate(-1)}>
-            <ArrowLeft size={20} className="me-2" />
-            Retour
-          </Button>
-          <span className="navbar-brand mb-0 h1">
-            💬 {communaute?.nom}
-          </span>
-          <div className="d-flex gap-2">
-            <Button 
-              variant="outline-light" 
-              size="sm"
-              onClick={() => setShowMembresModal(true)}
-            >
-              <Users size={18} className="me-1" />
-              {membres.length}
-            </Button>
-            {isFormateur() && (
-              <Button 
-                variant="outline-light" 
-                size="sm"
-                onClick={() => navigate(`/formateur/communaute/${id}/moderation`)}
-              >
-                <Settings size={18} />
-              </Button>
-            )}
+    <Container className="py-4">
+      <Row>
+        <Col lg={10} className="mx-auto">
+          <div className="mb-4">
+            {messages.map(message => (
+              <MessageCard key={message.id} message={message} />
+            ))}
+            <div ref={messagesEndRef} />
           </div>
-        </Container>
-      </nav>
 
-      <Container className="py-4">
-        <Row>
-          <Col lg={8} className="mx-auto">
-            {/* Info Communauté */}
-            <Card className="mb-4 border-0 shadow-sm">
-              <Card.Body>
-                <h5>{communaute?.formation?.titre}</h5>
-                <p className="text-muted mb-0">{communaute?.description}</p>
-              </Card.Body>
-            </Card>
-
-            {/* Message si muté */}
-            {userIsMuted && (
-              <Alert variant="warning" className="mb-4">
-                <strong>Vous êtes en mode silencieux.</strong> Vous ne pouvez pas envoyer de messages.
-              </Alert>
-            )}
-
-            {/* Messages épinglés */}
-            {pinned.length > 0 && (
-              <div className="mb-4">
-                <h6 className="text-muted mb-3">
-                  <Pin size={18} className="me-2" />
-                  Messages épinglés
-                </h6>
-                {pinned.map(message => (
-                  <MessageCard key={message.id} message={message} />
-                ))}
-              </div>
-            )}
-
-            {/* Annonces */}
-            {announcements.length > 0 && (
-              <div className="mb-4">
-                <h6 className="text-muted mb-3">
-                  <Megaphone size={18} className="me-2" />
-                  Annonces
-                </h6>
-                {announcements.map(message => (
-                  <MessageCard key={message.id} message={message} showPin={false} />
-                ))}
-              </div>
-            )}
-
-            {/* Messages normaux */}
-            <div className="mb-4">
-              <h6 className="text-muted mb-3">💬 Messages</h6>
-              {regular.length === 0 ? (
-                <Card className="border-0 shadow-sm">
-                  <Card.Body className="text-center py-5">
-                    <p className="text-muted">Aucun message pour le moment</p>
-                    <p className="text-muted small">Soyez le premier à envoyer un message !</p>
-                  </Card.Body>
-                </Card>
-              ) : (
-                regular.map(message => (
-                  <MessageCard key={message.id} message={message} showPin={false} />
-                ))
+          <Card className="border-0 shadow sticky-bottom">
+            <Card.Body>
+              {replyTo && (
+                <div className="bg-light p-2 rounded mb-2 d-flex justify-content-between">
+                  <small>
+                    <Reply size={14} className="me-1" />
+                    Répondre à <strong>{replyTo.user?.name}</strong>
+                  </small>
+                  <Button variant="link" size="sm" onClick={() => setReplyTo(null)}>
+                    ×
+                  </Button>
+                </div>
               )}
-            </div>
 
-            {/* Formulaire d'envoi */}
-            {!userIsMuted && (
-              <Card className="border-0 shadow-sm sticky-bottom">
-                <Card.Body>
-                  <Form onSubmit={handleSendMessage}>
-                    <Form.Group className="mb-3">
-                      <Form.Control
-                        as="textarea"
-                        rows={3}
-                        placeholder="Écrivez votre message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        disabled={sending}
-                      />
-                    </Form.Group>
-
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        {isFormateur() && (
-                          <Form.Check
-                            type="checkbox"
-                            label="📢 Publier comme annonce"
-                            checked={isAnnonce}
-                            onChange={(e) => setIsAnnonce(e.target.checked)}
-                          />
-                        )}
-                      </div>
-                      <Button 
-                        type="submit" 
-                        variant="primary"
-                        disabled={sending || !newMessage.trim()}
-                      >
-                        <Send size={18} className="me-2" />
-                        {sending ? 'Envoi...' : 'Envoyer'}
-                      </Button>
-                    </div>
-                  </Form>
-                </Card.Body>
-              </Card>
-            )}
-          </Col>
-        </Row>
-      </Container>
-
-      {/* Modal Liste des Membres */}
-      <Modal show={showMembresModal} onHide={() => setShowMembresModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Membres de la communauté</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {membres.map(membre => (
-            <div key={membre.id} className="d-flex align-items-center justify-content-between py-2 border-bottom">
-              <div className="d-flex align-items-center">
-                <div 
-                  className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white fw-bold me-3"
-                  style={{ width: 35, height: 35 }}
-                >
-                  {membre.name.charAt(0).toUpperCase()}
+              {selectedFiles.length > 0 && (
+                <div className="mb-2">
+                  <div className="d-flex flex-wrap gap-2">
+                    {selectedFiles.map((file, idx) => (
+                      <Badge key={idx} bg="secondary" className="p-2">
+                        {file.name}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="text-white p-0 ms-2"
+                          onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== idx))}
+                        >
+                          ×
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <strong>{membre.name}</strong>
-                  {membre.pivot.role === 'admin' && (
-                    <Badge bg="success" className="ms-2">Formateur</Badge>
-                  )}
-                  {membre.pivot.is_muted && (
-                    <Badge bg="danger" className="ms-2">Muté</Badge>
-                  )}
+              )}
+
+              <div className="d-flex gap-2 mb-2">
+                <OverlayTrigger overlay={<Tooltip>Image</Tooltip>}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => {
+                      setMessageType('image');
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <ImageIcon size={18} />
+                  </Button>
+                </OverlayTrigger>
+
+                <OverlayTrigger overlay={<Tooltip>Vidéo</Tooltip>}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => {
+                      setMessageType('video');
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <Video size={18} />
+                  </Button>
+                </OverlayTrigger>
+
+                <OverlayTrigger overlay={<Tooltip>Audio</Tooltip>}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={isRecording ? 'btn-danger' : ''}
+                  >
+                    <Mic size={18} />
+                  </Button>
+                </OverlayTrigger>
+
+                <OverlayTrigger overlay={<Tooltip>Fichier</Tooltip>}>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => {
+                      setMessageType('file');
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <Paperclip size={18} />
+                  </Button>
+                </OverlayTrigger>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  hidden
+                  accept={
+                    messageType === 'image' ? 'image/*' :
+                    messageType === 'video' ? 'video/*' :
+                    messageType === 'audio' ? 'audio/*' :
+                    messageType === 'pdf' ? '.pdf' : '*'
+                  }
+                  onChange={handleFileSelect}
+                />
+              </div>
+
+              <div>
+                <div className="d-flex gap-2">
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="Écrivez votre message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    disabled={isRecording}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
+                  />
+                  <Button onClick={handleSendMessage} variant="primary" disabled={isRecording}>
+                    <Send size={18} />
+                  </Button>
                 </div>
               </div>
-            </div>
-          ))}
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      <Modal
+        show={showMediaModal}
+        onHide={() => setShowMediaModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Body className="p-0">
+          {selectedMedia?.type === 'image' && (
+            <img src={selectedMedia.url} alt="media" style={{ width: '100%' }} />
+          )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowMembresModal(false)}>
-            Fermer
-          </Button>
-        </Modal.Footer>
       </Modal>
-    </div>
+    </Container>
   );
 };
 

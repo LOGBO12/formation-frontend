@@ -498,23 +498,54 @@ const ManageModule = () => {
                           </Card.Body>
                         </Card>
 
-                        {/* Zone d'édition */}
-                        <div
-                          ref={editorRef}
-                          contentEditable
-                          className="form-control editor-content"
-                          style={{
-                            minHeight: '400px',
-                            maxHeight: '600px',
-                            overflowY: 'auto',
-                            lineHeight: '1.8',
-                            fontSize: '16px',
-                            padding: '20px'
-                          }}
-                          dangerouslySetInnerHTML={{ __html: newChapitre.contenu }}
-                          onInput={(e) => setNewChapitre({ ...newChapitre, contenu: e.currentTarget.innerHTML })}
-                          placeholder="Commencez à écrire votre contenu ici..."
-                        />
+                       
+
+{/* Zone d'édition - CORRECTION DU BUG */}
+<div
+  ref={editorRef}
+  contentEditable
+  className="form-control editor-content"
+  style={{
+    minHeight: '400px',
+    maxHeight: '600px',
+    overflowY: 'auto',
+    lineHeight: '1.8',
+    fontSize: '16px',
+    padding: '20px'
+  }}
+  suppressContentEditableWarning
+  onInput={(e) => {
+    // Sauvegarder la position du curseur
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const offset = range.startOffset;
+    const container = range.startContainer;
+    
+    // Mettre à jour le contenu
+    setNewChapitre({ ...newChapitre, contenu: e.currentTarget.innerHTML });
+    
+    // Restaurer la position du curseur après le prochain render
+    setTimeout(() => {
+      try {
+        if (container.parentNode) {
+          const newRange = document.createRange();
+          newRange.setStart(container, Math.min(offset, container.length));
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+      } catch (err) {
+        // Si la restauration échoue, on ignore silencieusement
+      }
+    }, 0);
+  }}
+>
+  {!newChapitre.contenu && (
+    <span className="text-muted" style={{ pointerEvents: 'none', position: 'absolute' }}>
+      Commencez à écrire votre contenu ici...
+    </span>
+  )}
+</div>
                       </>
                     )}
 

@@ -41,6 +41,8 @@ import ManageQuiz from './pages/formateur/ManageQuiz';
 
 // Apprenant Pages
 import MesFormations from './pages/apprenant/MesFormations';
+import FormationViewer from './pages/apprenant/FormationViewer';
+import QuizViewer from './pages/apprenant/QuizViewer';
 import CataloguePage from './pages/apprenant/CataloguePage';
 import ProgressionPage from './pages/apprenant/ProgressionPage';
 import CommunautesPage from './pages/apprenant/CommunautesPage';
@@ -232,7 +234,24 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route
+            {/* NOUVELLE ROUTE À AJOUTER ICI */}
+              <Route
+                path="/apprenant/formations/:id"
+                element={
+                  <PrivateRoute>
+                    <FormationViewer />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/apprenant/quiz/:id"
+                element={
+                  <PrivateRoute>
+                    <QuizViewer />
+                  </PrivateRoute>
+                }
+              />
+              <Route
               path="/apprenant/catalogue"
               element={
                 <PrivateRoute>

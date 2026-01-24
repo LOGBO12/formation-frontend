@@ -20,6 +20,9 @@ const EditChapitre = () => {
   const [linkUrl, setLinkUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const editorRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const contentRef = useRef('');
+
   
   const [formData, setFormData] = useState({
     titre: '',
@@ -34,6 +37,15 @@ const EditChapitre = () => {
   useEffect(() => {
     fetchChapitre();
   }, [id]);
+
+  useEffect(() => {
+  if (editorRef.current && formData.contenu && formData.type === 'texte') {
+    if (document.activeElement !== editorRef.current) {
+      editorRef.current.innerHTML = formData.contenu;
+    }
+  }
+}, [chapitre]);
+
 
   const fetchChapitre = async () => {
     try {
@@ -277,21 +289,29 @@ const EditChapitre = () => {
                   <Form.Group className="mb-3">
                     <Form.Label>Contenu</Form.Label>
                     {!showPreview ? (
-                      <div
-                        ref={editorRef}
-                        contentEditable
-                        className="form-control editor-content"
-                        style={{
-                          minHeight: '400px',
-                          maxHeight: '600px',
-                          overflowY: 'auto',
-                          lineHeight: '1.8',
-                          fontSize: '16px',
-                          padding: '20px'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: formData.contenu }}
-                        onInput={(e) => setFormData({ ...formData, contenu: e.currentTarget.innerHTML })}
-                      />
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      className="form-control editor-content"
+                      style={{
+                        minHeight: '400px',
+                        maxHeight: '600px',
+                        overflowY: 'auto',
+                        lineHeight: '1.8',
+                        fontSize: '16px',
+                        padding: '20px'
+                      }}
+                      suppressContentEditableWarning
+                      onInput={(e) => {
+                        // Mettre à jour DIRECTEMENT sans re-render
+                        formData.contenu = e.currentTarget.innerHTML;
+                      }}
+                      onBlur={(e) => {
+                        // Sauvegarder définitivement au blur
+                        setFormData({ ...formData, contenu: e.currentTarget.innerHTML });
+                      }}
+                      defaultValue={formData.contenu} // Ignoré par contentEditable, mais bon pour la cohérence
+                    />
                     ) : (
                       <div 
                         className="border rounded p-4 preview-content"
@@ -444,6 +464,11 @@ const EditChapitre = () => {
           padding: 1rem;
           border-radius: 0.375rem;
           overflow-x: auto;
+        }
+          .editor-content[data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #6c757d;
+          pointer-events: none;
         }
         .editor-content blockquote,
         .preview-content blockquote {
