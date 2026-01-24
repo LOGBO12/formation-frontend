@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Table, Button, Badge, InputGroup, Form } from 'react-bootstrap';
-import { MessageSquare, Users, Shield, Search, Eye } from 'lucide-react';
+import { Container, Row, Col, Card, Table, Button, Badge, InputGroup, Form, Alert } from 'react-bootstrap';
+import { MessageSquare, Users, Shield, Search, Eye, AlertCircle } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,7 @@ const FormateurCommunautesPage = () => {
   const [communautes, setCommunautes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchCommunautes();
@@ -17,34 +18,30 @@ const FormateurCommunautesPage = () => {
 
   const fetchCommunautes = async () => {
     try {
-      const formationsRes = await api.get('/formations');
-      const formations = formationsRes.data.formations;
-
-      const communautesData = [];
-      for (const formation of formations) {
-        if (formation.communaute) {
-          const comRes = await api.get(`/communautes/${formation.communaute.id}`);
-          const membresRes = await api.get(`/communautes/${formation.communaute.id}/membres`);
-          
-          communautesData.push({
-            ...comRes.data.communaute,
-            total_membres: membresRes.data.membres.length,
-            formation: formation,
-          });
-        }
+      console.log('🔵 Fetching communautés formateur...');
+      const response = await api.get('/formateur/mes-communautes');
+      
+      console.log('✅ Réponse API:', response.data);
+      
+      if (response.data.success) {
+        setCommunautes(response.data.communautes);
+        console.log('📊 Communautés chargées:', response.data.communautes.length);
+      } else {
+        setError('Erreur lors du chargement');
       }
-
-      setCommunautes(communautesData);
     } catch (error) {
-      toast.error('Erreur lors du chargement');
+      console.error('❌ Erreur:', error);
+      console.error('❌ Response:', error.response);
+      setError(error.response?.data?.message || 'Erreur lors du chargement');
+      toast.error('Erreur lors du chargement des communautés');
     } finally {
       setLoading(false);
     }
   };
 
   const filteredCommunautes = communautes.filter(c =>
-    c.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.formation?.titre.toLowerCase().includes(searchTerm.toLowerCase())
+    c.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.formation?.titre?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -63,6 +60,15 @@ const FormateurCommunautesPage = () => {
           <p className="text-muted mb-0">Gérez les communautés de vos formations</p>
         </div>
 
+        {/* Alert d'erreur */}
+        {error && (
+          <Alert variant="danger" className="mb-4">
+            <AlertCircle size={20} className="me-2" />
+            {error}
+          </Alert>
+        )}
+
+        {/* Stats Cards */}
         <Row className="mb-4">
           <Col md={4} className="mb-3">
             <Card className="border-0 shadow-sm">
@@ -89,7 +95,7 @@ const FormateurCommunautesPage = () => {
                   <div>
                     <h6 className="text-muted mb-1 small">Total Membres</h6>
                     <h3 className="mb-0">
-                      {communautes.reduce((sum, c) => sum + c.total_membres, 0)}
+                      {communautes.reduce((sum, c) => sum + (c.total_membres || 0), 0)}
                     </h3>
                   </div>
                 </div>
@@ -104,8 +110,10 @@ const FormateurCommunautesPage = () => {
                     <Shield className="text-warning" size={32} />
                   </div>
                   <div>
-                    <h6 className="text-muted mb-1 small">Actives</h6>
-                    <h3 className="mb-0">{communautes.length}</h3>
+                    <h6 className="text-muted mb-1 small">Messages</h6>
+                    <h3 className="mb-0">
+                      {communautes.reduce((sum, c) => sum + (c.total_messages || 0), 0)}
+                    </h3>
                   </div>
                 </div>
               </Card.Body>
@@ -113,6 +121,7 @@ const FormateurCommunautesPage = () => {
           </Col>
         </Row>
 
+        {/* Search */}
         <Card className="border-0 shadow-sm mb-4">
           <Card.Body>
             <InputGroup>
@@ -128,6 +137,7 @@ const FormateurCommunautesPage = () => {
           </Card.Body>
         </Card>
 
+        {/* Liste des communautés */}
         <Card className="border-0 shadow-sm">
           <Card.Body>
             {filteredCommunautes.length === 0 ? (
@@ -135,7 +145,9 @@ const FormateurCommunautesPage = () => {
                 <MessageSquare size={64} className="mb-3 opacity-50" />
                 <h4>Aucune communauté</h4>
                 <p className="text-muted">
-                  Les communautés sont créées automatiquement lorsque des apprenants s'inscrivent à vos formations.
+                  {communautes.length === 0 
+                    ? "Les communautés sont créées automatiquement lorsque des apprenants s'inscrivent à vos formations."
+                    : "Aucune communauté ne correspond à votre recherche."}
                 </p>
               </div>
             ) : (
@@ -164,7 +176,8 @@ const FormateurCommunautesPage = () => {
                             <strong>{communaute.nom}</strong>
                             {communaute.description && (
                               <div className="text-muted small">
-                                {communaute.description.substring(0, 50)}...
+                                {communaute.description.substring(0, 50)}
+                                {communaute.description.length > 50 && '...'}
                               </div>
                             )}
                           </div>
@@ -173,13 +186,13 @@ const FormateurCommunautesPage = () => {
                       <td>
                         <span className="fw-semibold">{communaute.formation?.titre}</span>
                         <div className="text-muted small">
-                          {communaute.formation?.domaine?.name}
+                          {communaute.formation?.domaine}
                         </div>
                       </td>
                       <td>
                         <Badge bg="success" className="fs-6">
                           <Users size={14} className="me-1" />
-                          {communaute.total_membres}
+                          {communaute.total_membres || 0}
                         </Badge>
                       </td>
                       <td>
@@ -214,6 +227,19 @@ const FormateurCommunautesPage = () => {
                 </tbody>
               </Table>
             )}
+          </Card.Body>
+        </Card>
+
+        {/* Info Box */}
+        <Card className="border-0 shadow-sm bg-light mt-4">
+          <Card.Body>
+            <h6 className="fw-bold mb-3">💡 À propos des communautés</h6>
+            <ul className="mb-0">
+              <li className="mb-2">Les communautés sont créées automatiquement lors de la première inscription à vos formations</li>
+              <li className="mb-2">Vous êtes automatiquement administrateur de toutes vos communautés</li>
+              <li className="mb-2">Utilisez la modération pour gérer les membres et maintenir un environnement sain</li>
+              <li>Les apprenants peuvent échanger librement dans un espace dédié à chaque formation</li>
+            </ul>
           </Card.Body>
         </Card>
       </Container>
