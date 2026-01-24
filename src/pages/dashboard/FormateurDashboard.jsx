@@ -45,27 +45,41 @@ const FormateurDashboard = () => {
   return (
     <div className="min-vh-100 bg-light">
       <Container fluid className="py-4">
-        {/* Welcome Banner */}
-        <Card className="bg-gradient mb-4 border-0 text-white" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-          <Card.Body className="p-4">
-            <Row className="align-items-center">
-              <Col>
-                <h3 className="mb-2">Bienvenue, {user?.name} ! 👋</h3>
-                <p className="mb-0">Voici un aperçu de votre activité</p>
-              </Col>
-              <Col xs="auto">
-                <Button 
-                  variant="light" 
-                  size="lg" 
-                  onClick={() => navigate('/formateur/formations/create')}
-                >
-                  <Plus size={20} className="me-2" />
-                  Nouvelle Formation
-                </Button>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
+   {/* Welcome Banner */}
+<Card className="bg-gradient mb-4 border-0 text-dark" style={{ 
+  background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+  border: '2px solid #000 !important'
+}}>
+  <Card.Body className="p-4">
+    <Row className="align-items-center">
+      <Col>
+        <h3 className="mb-2 fw-bold" style={{ color: '#000' }}>
+          <h3 className="mb-2">Bienvenue, {user?.name} ! </h3>
+        </h3>
+        <p className="mb-0" style={{ color: '#000', fontWeight: '500' }}>
+          Voici un aperçu de votre activité
+        </p>
+      </Col>
+      <Col xs="auto">
+        <Button 
+          variant="success" 
+          size="lg" 
+          onClick={() => navigate('/formateur/formations/create')}
+          style={{
+            backgroundColor: '#28a745',
+            borderColor: '#28a745',
+            fontWeight: '600',
+            padding: '0.75rem 1.5rem',
+            boxShadow: '0 4px 6px rgba(40, 167, 69, 0.2)'
+          }}
+        >
+          <Plus size={20} className="me-2" />
+          Nouvelle Formation
+        </Button>
+      </Col>
+    </Row>
+  </Card.Body>
+</Card>
 
         {/* Stats Cards */}
         <Row className="mb-4">

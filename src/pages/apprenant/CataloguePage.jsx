@@ -78,12 +78,12 @@ const CataloguePage = () => {
   return (
     <div className="min-vh-100 bg-light">
       {/* Header */}
-      <div className="bg-gradient text-white py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <Container>
-          <h2 className="fw-bold mb-2">Catalogue des Formations</h2>
-          <p className="mb-0">Découvrez des milliers de formations pour développer vos compétences</p>
-        </Container>
-      </div>
+<div className="bg-gradient text-dark py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+  <Container>
+    <h2 className="fw-bold mb-2 text-dark">Catalogue des Formations</h2>
+    <p className="mb-0 text-dark">Découvrez des milliers de formations pour développer vos compétences</p>
+  </Container>
+</div>
 
       <Container className="py-4">
         {/* Filters */}

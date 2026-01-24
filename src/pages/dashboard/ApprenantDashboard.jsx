@@ -38,27 +38,29 @@ const ApprenantDashboard = () => {
   return (
     <div className="min-vh-100 bg-light">
       <Container fluid className="py-4">
-        {/* Welcome Banner */}
-        <Card className="bg-gradient mb-4 border-0 text-white" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-          <Card.Body className="p-4">
-            <Row className="align-items-center">
-              <Col md={8}>
-                <h3 className="mb-2">Bienvenue, {user?.name} ! 📚</h3>
-                <p className="mb-0">Continuez votre apprentissage là où vous l'avez laissé</p>
-              </Col>
-              <Col md={4} className="text-md-end">
-                <Button 
-                  variant="light" 
-                  size="lg"
-                  onClick={() => navigate('/apprenant/catalogue')}
-                >
-                  Explorer le catalogue
-                  <ArrowRight size={20} className="ms-2" />
-                </Button>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
+       
+{/* Welcome Banner - Version Noir */}
+<Card className="bg-dark mb-4 border-0 text-white">
+  <Card.Body className="p-4">
+    <Row className="align-items-center">
+      <Col md={8}>
+        <h3 className="mb-2">Bienvenue, {user?.name} ! </h3>
+        <p className="mb-0 text-light">Continuez votre apprentissage là où vous l'avez laissé</p>
+      </Col>
+      <Col md={4} className="text-md-end">
+        <Button 
+          variant="primary"  // Changé à primary pour le bleu
+          size="lg"
+          onClick={() => navigate('/apprenant/catalogue')}
+          className="fw-bold"
+        >
+          Explorer le catalogue
+          <ArrowRight size={20} className="ms-2" />
+        </Button>
+      </Col>
+    </Row>
+  </Card.Body>
+</Card>
 
         {/* Stats Cards */}
         <Row className="mb-4">
