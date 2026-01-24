@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  Container, Row, Col, Card, Form, Button, Badge, Modal, 
-  Dropdown, OverlayTrigger, Tooltip, Spinner 
+  Container, Form, Button, Badge, Spinner, Alert 
 } from 'react-bootstrap';
 import { 
-  Send, ImageIcon, Video, Mic, FileText, Paperclip,
-  Smile, MoreVertical, Reply, ArrowLeft, Shield, Users,
-  ThumbsUp, Heart, Laugh, AlertCircle, PartyPopper, Flame, Hand
+  Send, ArrowLeft, Shield, Users, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
@@ -22,10 +19,19 @@ const CommunauteView = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
     fetchData();
+    
+    // Auto-refresh messages every 5 seconds
+   const interval = setInterval(() => {
+      fetchMessages(false); // Silent refresh
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [id]);
 
   useEffect(() => {
@@ -34,18 +40,51 @@ const CommunauteView = () => {
 
   const fetchData = async () => {
     try {
+      console.log('🔵 Fetching communauté data...', { id });
+      setError(null);
+      
       const [comRes, msgRes] = await Promise.all([
         api.get(`/communautes/${id}`),
         api.get(`/communautes/${id}/messages`)
       ]);
 
-      setCommunaute(comRes.data.communaute);
-      setMessages(msgRes.data.messages.data || []);
+      console.log('✅ Communauté loaded:', comRes.data);
+      console.log('✅ Messages loaded:', msgRes.data.messages.data?.length || 0);
+
+      if (comRes.data.success) {
+        setCommunaute(comRes.data.communaute);
+      }
+      
+      if (msgRes.data.success) {
+        setMessages(msgRes.data.messages.data || []);
+      }
     } catch (error) {
-      toast.error('Erreur lors du chargement');
-      navigate(-1);
+      console.error('❌ Erreur chargement:', error);
+      console.error('❌ Response:', error.response);
+      
+      const errorMsg = error.response?.data?.message || 'Erreur lors du chargement';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      
+      // Si 403, rediriger
+      if (error.response?.status === 403) {
+        setTimeout(() => navigate(-1), 2000);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMessages = async (showToast = true) => {
+    try {
+      const msgRes = await api.get(`/communautes/${id}/messages`);
+      if (msgRes.data.success) {
+        setMessages(msgRes.data.messages.data || []);
+      }
+    } catch (error) {
+      if (showToast) {
+        console.error('Erreur refresh messages:', error);
+      }
     }
   };
 
@@ -57,16 +96,35 @@ const CommunauteView = () => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
+    const messageContent = newMessage.trim();
     setSending(true);
+    
     try {
-      await api.post(`/communautes/${id}/messages`, {
-        message: newMessage.trim()
+      console.log('📤 Sending message...', { message: messageContent });
+      
+      const response = await api.post(`/communautes/${id}/messages`, {
+        message: messageContent
       });
 
-      setNewMessage('');
-      fetchData(); // Recharger les messages
+      console.log('✅ Message sent:', response.data);
+
+      if (response.data.success) {
+        setNewMessage('');
+        
+        // Ajouter le message immédiatement à la liste
+        setMessages(prev => [...prev, response.data.message]);
+        
+        // Refresh complet pour être sûr
+        setTimeout(() => fetchMessages(false), 500);
+        
+        toast.success('Message envoyé');
+      }
     } catch (error) {
-      toast.error('Erreur lors de l\'envoi');
+      console.error('❌ Erreur envoi:', error);
+      console.error('❌ Response:', error.response);
+      
+      const errorMsg = error.response?.data?.message || 'Erreur lors de l\'envoi';
+      toast.error(errorMsg);
     } finally {
       setSending(false);
     }
@@ -111,6 +169,28 @@ const CommunauteView = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-vh-100 d-flex align-items-center justify-content-center">
+        <Alert variant="danger" className="text-center">
+          <AlertCircle size={48} className="mb-3" />
+          <h5>{error}</h5>
+          <Button variant="outline-danger" onClick={() => navigate(-1)} className="mt-3">
+            Retour
+          </Button>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!communaute) {
+    return (
+      <div className="min-vh-100 d-flex align-items-center justify-content-center">
+        <Alert variant="warning">Communauté introuvable</Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="vh-100 d-flex flex-column" style={{ backgroundColor: '#e5ddd5' }}>
       {/* Header WhatsApp Style */}
@@ -134,29 +214,48 @@ const CommunauteView = () => {
               <div>
                 <h6 className="mb-0 fw-bold">{communaute.nom}</h6>
                 <small className="opacity-75">
-                  {communaute.total_membres} membres
+                  {communaute.total_membres} membre{communaute.total_membres > 1 ? 's' : ''}
                 </small>
               </div>
             </div>
 
-            {user?.role === 'formateur' && (
-              <Button
-                variant="link"
-                className="text-white"
-                onClick={() => navigate(`/formateur/communaute/${id}/moderation`)}
-              >
-                <Shield size={20} />
-              </Button>
-            )}
+            <div className="d-flex gap-2">
+              {communaute.mon_role === 'admin' && (
+                <Button
+                  variant="link"
+                  className="text-white"
+                  onClick={() => navigate(`/formateur/communaute/${id}/moderation`)}
+                  title="Modération"
+                >
+                  <Shield size={20} />
+                </Button>
+              )}
+            </div>
           </div>
         </Container>
       </div>
 
-      {/* Messages Area - WhatsApp Style */}
-      <div className="flex-grow-1 overflow-auto" style={{ backgroundImage: 'url(/whatsapp-bg.png)' }}>
-        <Container className="py-3">
+      {/* Messages mutés warning */}
+      {communaute.is_muted && (
+        <Alert variant="warning" className="mb-0 rounded-0 text-center small py-2">
+          <AlertCircle size={16} className="me-2" />
+          Vous ne pouvez pas envoyer de messages dans cette communauté
+        </Alert>
+      )}
+
+      {/* Messages Area */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-grow-1 overflow-auto p-3" 
+        style={{ 
+          backgroundImage: 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0icGF0dGVybiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJNMCAwSDQwVjQwSDB6IiBmaWxsPSIjZTVkZGQ1Ii8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNwYXR0ZXJuKSIvPjwvc3ZnPg==)',
+          backgroundColor: '#e5ddd5'
+        }}
+      >
+        <Container>
           {messages.length === 0 ? (
             <div className="text-center text-muted py-5">
+              <Users size={48} className="mb-3 opacity-50" />
               <p>Aucun message pour le moment</p>
               <small>Soyez le premier à envoyer un message !</small>
             </div>
@@ -172,18 +271,45 @@ const CommunauteView = () => {
                       ? 'bg-success text-white'
                       : 'bg-white text-dark'
                   }`}
-                  style={{ maxWidth: '70%', minWidth: '200px' }}
+                  style={{ 
+                    maxWidth: '70%', 
+                    minWidth: '200px',
+                    wordBreak: 'break-word'
+                  }}
                 >
+                  {/* Auteur (si pas mon message) */}
                   {!isMyMessage(message) && (
-                    <div className="fw-bold mb-1" style={{ fontSize: '0.85rem', color: '#075e54' }}>
-                      {message.user?.name}
+                    <div 
+                      className="fw-bold mb-1" 
+                      style={{ 
+                        fontSize: '0.85rem', 
+                        color: '#075e54' 
+                      }}
+                    >
+                      {message.user?.name || 'Utilisateur'}
                     </div>
                   )}
                   
-                  <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {/* Badge annonce */}
+                  {message.is_announcement && (
+                    <Badge bg="warning" className="mb-2">
+                      📢 Annonce
+                    </Badge>
+                  )}
+                  
+                  {/* Badge épinglé */}
+                  {message.is_pinned && (
+                    <Badge bg="info" className="mb-2 ms-2">
+                      📌 Épinglé
+                    </Badge>
+                  )}
+                  
+                  {/* Contenu du message */}
+                  <div style={{ whiteSpace: 'pre-wrap' }}>
                     {message.message}
                   </div>
                   
+                  {/* Heure */}
                   <div 
                     className="text-end mt-1" 
                     style={{ 
@@ -202,7 +328,7 @@ const CommunauteView = () => {
         </Container>
       </div>
 
-      {/* Input Area - WhatsApp Style */}
+      {/* Input Area */}
       <div className="bg-light p-3 shadow">
         <Container>
           <Form onSubmit={handleSendMessage}>
@@ -210,10 +336,10 @@ const CommunauteView = () => {
               <Form.Control
                 as="textarea"
                 rows={1}
-                placeholder="Écrivez votre message..."
+                placeholder={communaute.is_muted ? "Vous êtes muté" : "Écrivez votre message..."}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                disabled={sending}
+                disabled={sending || communaute.is_muted}
                 className="border-0 shadow-sm"
                 style={{
                   resize: 'none',
@@ -230,7 +356,7 @@ const CommunauteView = () => {
               />
               <Button
                 type="submit"
-                disabled={!newMessage.trim() || sending}
+                disabled={!newMessage.trim() || sending || communaute.is_muted}
                 className="rounded-circle d-flex align-items-center justify-content-center"
                 style={{ width: 48, height: 48 }}
                 variant="success"
