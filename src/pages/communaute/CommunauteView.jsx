@@ -1,477 +1,251 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Container, Row, Col, Card, Form, Button, Badge, Modal, 
   Dropdown, OverlayTrigger, Tooltip, Spinner 
 } from 'react-bootstrap';
 import { 
   Send, ImageIcon, Video, Mic, FileText, Paperclip,
-  Smile, MoreVertical, Reply, Edit3, Trash2, Pin, Eye,
-  ThumbsUp, Heart, Laugh, AlertCircle, PartyPopper, Flame, 
-  Hand, Download, Play, Pause, Volume2, VolumeX
+  Smile, MoreVertical, Reply, ArrowLeft, Shield, Users,
+  ThumbsUp, Heart, Laugh, AlertCircle, PartyPopper, Flame, Hand
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../api/axios';
+import toast from 'react-hot-toast';
 
 const CommunauteView = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [communaute, setCommunaute] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [messageType, setMessageType] = useState('text');
-  const [isRecording, setIsRecording] = useState(false);
-  const [replyTo, setReplyTo] = useState(null);
-  const [editingMessage, setEditingMessage] = useState(null);
-  const [showMediaModal, setShowMediaModal] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState(null);
-  
-  const fileInputRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const reactions = [
-    { type: 'like', emoji: '👍' },
-    { type: 'love', emoji: '❤️' },
-    { type: 'laugh', emoji: '😂' },
-    { type: 'wow', emoji: '😮' },
-    { type: 'party', emoji: '🎉' },
-    { type: 'fire', emoji: '🔥' },
-    { type: 'clap', emoji: '👏' },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, [id]);
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const validFiles = files.filter(file => file.size <= 50 * 1024 * 1024);
-    setSelectedFiles([...selectedFiles, ...validFiles].slice(0, 5));
-  };
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  const startRecording = async () => {
+  const fetchData = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const chunks = [];
+      const [comRes, msgRes] = await Promise.all([
+        api.get(`/communautes/${id}`),
+        api.get(`/communautes/${id}/messages`)
+      ]);
 
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], `audio_${Date.now()}.webm`, { type: 'audio/webm' });
-        setSelectedFiles([file]);
-        setMessageType('audio');
-      };
-
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
+      setCommunaute(comRes.data.communaute);
+      setMessages(msgRes.data.messages.data || []);
     } catch (error) {
-      alert('Impossible d\'accéder au microphone');
+      toast.error('Erreur lors du chargement');
+      navigate(-1);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() && selectedFiles.length === 0) return;
+    if (!newMessage.trim()) return;
 
-    console.log('Envoi message...', { message: newMessage, files: selectedFiles });
-    
-    setNewMessage('');
-    setSelectedFiles([]);
-    setMessageType('text');
-    setReplyTo(null);
+    setSending(true);
+    try {
+      await api.post(`/communautes/${id}/messages`, {
+        message: newMessage.trim()
+      });
+
+      setNewMessage('');
+      fetchData(); // Recharger les messages
+    } catch (error) {
+      toast.error('Erreur lors de l\'envoi');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const handleReaction = async (messageId, reactionType) => {
-    console.log('Toggle reaction:', messageId, reactionType);
+  const formatMessageTime = (date) => {
+    const messageDate = new Date(date);
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const isToday = messageDate.toDateString() === now.toDateString();
+    const isYesterday = messageDate.toDateString() === yesterday.toDateString();
+
+    const timeString = messageDate.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    if (isToday) {
+      return timeString;
+    } else if (isYesterday) {
+      return `Hier ${timeString}`;
+    } else {
+      return messageDate.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }) + ' ' + timeString;
+    }
   };
 
-  const MessageCard = ({ message }) => {
-    const [showReplies, setShowReplies] = useState(false);
+  const isMyMessage = (message) => {
+    return message.user?.id === user?.id;
+  };
 
+  if (loading) {
     return (
-      <Card className="mb-3 border-0 shadow-sm">
-        <Card.Body>
-          <div className="d-flex justify-content-between align-items-start mb-2">
-            <div className="d-flex align-items-center">
-              <div 
-                className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white fw-bold me-2"
-                style={{ width: 40, height: 40 }}
-              >
-                {message.user?.name?.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <strong>{message.user?.name}</strong>
-                {message.is_edited && (
-                  <Badge bg="secondary" className="ms-2" style={{ fontSize: '0.7rem' }}>
-                    modifié
-                  </Badge>
-                )}
-                <div className="text-muted small">
-                  {new Date(message.created_at).toLocaleString('fr-FR')}
-                </div>
-              </div>
-            </div>
-
-            <Dropdown>
-              <Dropdown.Toggle variant="link" size="sm" className="text-muted">
-                <MoreVertical size={18} />
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                <Dropdown.Item onClick={() => setReplyTo(message)}>
-                  <Reply size={16} className="me-2" />
-                  Répondre
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
-
-          {message.parent && (
-            <div className="bg-light p-2 rounded mb-2 small">
-              <Reply size={14} className="me-1" />
-              En réponse à <strong>{message.parent.user?.name}</strong>
-            </div>
-          )}
-
-          {message.message && (
-            <p className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
-              {message.message}
-            </p>
-          )}
-
-          {message.type === 'image' && message.attachments && (
-            <div className="d-flex flex-wrap gap-2 mb-2">
-              {message.attachments.map((url, idx) => (
-                <img
-                  key={idx}
-                  src={url}
-                  alt="attachment"
-                  className="rounded"
-                  style={{ maxWidth: 200, maxHeight: 200, cursor: 'pointer' }}
-                  onClick={() => {
-                    setSelectedMedia({ type: 'image', url });
-                    setShowMediaModal(true);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          {message.type === 'video' && message.attachments && (
-            <div className="mb-2">
-              {message.attachments.map((url, idx) => (
-                <video
-                  key={idx}
-                  controls
-                  style={{ maxWidth: '100%', borderRadius: 8 }}
-                >
-                  <source src={url} type="video/mp4" />
-                </video>
-              ))}
-            </div>
-          )}
-
-          {message.type === 'audio' && message.attachments && (
-            <div className="mb-2">
-              {message.attachments.map((url, idx) => (
-                <AudioPlayer key={idx} src={url} />
-              ))}
-            </div>
-          )}
-
-          {message.type === 'pdf' && message.attachments && (
-            <div className="mb-2">
-              {message.attachments.map((url, idx) => (
-                <Card key={idx} className="bg-light">
-                  <Card.Body className="d-flex align-items-center">
-                    <FileText size={32} className="text-danger me-3" />
-                    <div className="flex-grow-1">
-                      <strong>Document PDF</strong>
-                      <div className="text-muted small">
-                        {message.attachments_meta?.[idx]?.original_name}
-                      </div>
-                    </div>
-                    <Button variant="outline-primary" size="sm" as="a" href={url} download>
-                      <Download size={16} />
-                    </Button>
-                  </Card.Body>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          <div className="d-flex align-items-center gap-2 mb-2">
-            {message.grouped_reactions && Object.keys(message.grouped_reactions).length > 0 && (
-              <div className="d-flex gap-1">
-                {Object.entries(message.grouped_reactions).map(([type, count]) => {
-                  const reaction = reactions.find(r => r.type === type);
-                  return (
-                    <Button
-                      key={type}
-                      variant="light"
-                      size="sm"
-                      className={message.user_reactions?.includes(type) ? 'border-primary' : ''}
-                      onClick={() => handleReaction(message.id, type)}
-                    >
-                      {reaction?.emoji} {count}
-                    </Button>
-                  );
-                })}
-              </div>
-            )}
-
-            <Dropdown>
-              <Dropdown.Toggle variant="outline-secondary" size="sm">
-                <Smile size={16} />
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                <div className="px-2">
-                  <div className="d-flex gap-2">
-                    {reactions.map(({ type, emoji }) => (
-                      <Button
-                        key={type}
-                        variant="light"
-                        size="sm"
-                        onClick={() => handleReaction(message.id, type)}
-                        style={{ fontSize: '1.2rem' }}
-                      >
-                        {emoji}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </Dropdown.Menu>
-            </Dropdown>
-
-            {message.replies_count > 0 && (
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => setShowReplies(!showReplies)}
-              >
-                {message.replies_count} réponse(s)
-              </Button>
-            )}
-
-            {message.views_count > 0 && (
-              <small className="text-muted ms-auto">
-                <Eye size={14} className="me-1" />
-                {message.views_count}
-              </small>
-            )}
-          </div>
-
-          {showReplies && message.replies && (
-            <div className="ps-4 border-start border-primary">
-              {message.replies.map(reply => (
-                <MessageCard key={reply.id} message={reply} />
-              ))}
-            </div>
-          )}
-        </Card.Body>
-      </Card>
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <Spinner animation="border" variant="success" />
+      </div>
     );
-  };
-
-  const AudioPlayer = ({ src }) => {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const audioRef = useRef(null);
-
-    return (
-      <Card className="bg-light">
-        <Card.Body className="d-flex align-items-center gap-3">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              if (isPlaying) {
-                audioRef.current?.pause();
-              } else {
-                audioRef.current?.play();
-              }
-              setIsPlaying(!isPlaying);
-            }}
-          >
-            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-          </Button>
-          
-          <audio
-            ref={audioRef}
-            src={src}
-            onEnded={() => setIsPlaying(false)}
-            muted={isMuted}
-          />
-          
-          <div className="flex-grow-1">
-            <div className="bg-secondary rounded" style={{ height: 4 }}>
-              <div className="bg-primary rounded" style={{ height: 4, width: '40%' }} />
-            </div>
-          </div>
-          
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => setIsMuted(!isMuted)}
-          >
-            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </Button>
-        </Card.Body>
-      </Card>
-    );
-  };
+  }
 
   return (
-    <Container className="py-4">
-      <Row>
-        <Col lg={10} className="mx-auto">
-          <div className="mb-4">
-            {messages.map(message => (
-              <MessageCard key={message.id} message={message} />
-            ))}
-            <div ref={messagesEndRef} />
+    <div className="vh-100 d-flex flex-column" style={{ backgroundColor: '#e5ddd5' }}>
+      {/* Header WhatsApp Style */}
+      <div className="bg-success text-white shadow-sm p-3">
+        <Container>
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <Button 
+                variant="link" 
+                className="text-white p-0 me-3"
+                onClick={() => navigate(-1)}
+              >
+                <ArrowLeft size={24} />
+              </Button>
+              <div 
+                className="bg-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                style={{ width: 40, height: 40 }}
+              >
+                <Users size={20} className="text-success" />
+              </div>
+              <div>
+                <h6 className="mb-0 fw-bold">{communaute.nom}</h6>
+                <small className="opacity-75">
+                  {communaute.total_membres} membres
+                </small>
+              </div>
+            </div>
+
+            {user?.role === 'formateur' && (
+              <Button
+                variant="link"
+                className="text-white"
+                onClick={() => navigate(`/formateur/communaute/${id}/moderation`)}
+              >
+                <Shield size={20} />
+              </Button>
+            )}
           </div>
+        </Container>
+      </div>
 
-          <Card className="border-0 shadow sticky-bottom">
-            <Card.Body>
-              {replyTo && (
-                <div className="bg-light p-2 rounded mb-2 d-flex justify-content-between">
-                  <small>
-                    <Reply size={14} className="me-1" />
-                    Répondre à <strong>{replyTo.user?.name}</strong>
-                  </small>
-                  <Button variant="link" size="sm" onClick={() => setReplyTo(null)}>
-                    ×
-                  </Button>
-                </div>
-              )}
-
-              {selectedFiles.length > 0 && (
-                <div className="mb-2">
-                  <div className="d-flex flex-wrap gap-2">
-                    {selectedFiles.map((file, idx) => (
-                      <Badge key={idx} bg="secondary" className="p-2">
-                        {file.name}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="text-white p-0 ms-2"
-                          onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== idx))}
-                        >
-                          ×
-                        </Button>
-                      </Badge>
-                    ))}
+      {/* Messages Area - WhatsApp Style */}
+      <div className="flex-grow-1 overflow-auto" style={{ backgroundImage: 'url(/whatsapp-bg.png)' }}>
+        <Container className="py-3">
+          {messages.length === 0 ? (
+            <div className="text-center text-muted py-5">
+              <p>Aucun message pour le moment</p>
+              <small>Soyez le premier à envoyer un message !</small>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`d-flex mb-3 ${isMyMessage(message) ? 'justify-content-end' : 'justify-content-start'}`}
+              >
+                <div
+                  className={`rounded px-3 py-2 shadow-sm ${
+                    isMyMessage(message)
+                      ? 'bg-success text-white'
+                      : 'bg-white text-dark'
+                  }`}
+                  style={{ maxWidth: '70%', minWidth: '200px' }}
+                >
+                  {!isMyMessage(message) && (
+                    <div className="fw-bold mb-1" style={{ fontSize: '0.85rem', color: '#075e54' }}>
+                      {message.user?.name}
+                    </div>
+                  )}
+                  
+                  <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {message.message}
+                  </div>
+                  
+                  <div 
+                    className="text-end mt-1" 
+                    style={{ 
+                      fontSize: '0.7rem',
+                      opacity: 0.7
+                    }}
+                  >
+                    {formatMessageTime(message.created_at)}
+                    {message.is_edited && ' (modifié)'}
                   </div>
                 </div>
-              )}
-
-              <div className="d-flex gap-2 mb-2">
-                <OverlayTrigger overlay={<Tooltip>Image</Tooltip>}>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => {
-                      setMessageType('image');
-                      fileInputRef.current?.click();
-                    }}
-                  >
-                    <ImageIcon size={18} />
-                  </Button>
-                </OverlayTrigger>
-
-                <OverlayTrigger overlay={<Tooltip>Vidéo</Tooltip>}>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => {
-                      setMessageType('video');
-                      fileInputRef.current?.click();
-                    }}
-                  >
-                    <Video size={18} />
-                  </Button>
-                </OverlayTrigger>
-
-                <OverlayTrigger overlay={<Tooltip>Audio</Tooltip>}>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={isRecording ? 'btn-danger' : ''}
-                  >
-                    <Mic size={18} />
-                  </Button>
-                </OverlayTrigger>
-
-                <OverlayTrigger overlay={<Tooltip>Fichier</Tooltip>}>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => {
-                      setMessageType('file');
-                      fileInputRef.current?.click();
-                    }}
-                  >
-                    <Paperclip size={18} />
-                  </Button>
-                </OverlayTrigger>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  hidden
-                  accept={
-                    messageType === 'image' ? 'image/*' :
-                    messageType === 'video' ? 'video/*' :
-                    messageType === 'audio' ? 'audio/*' :
-                    messageType === 'pdf' ? '.pdf' : '*'
-                  }
-                  onChange={handleFileSelect}
-                />
               </div>
-
-              <div>
-                <div className="d-flex gap-2">
-                  <Form.Control
-                    as="textarea"
-                    rows={2}
-                    placeholder="Écrivez votre message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    disabled={isRecording}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                      }
-                    }}
-                  />
-                  <Button onClick={handleSendMessage} variant="primary" disabled={isRecording}>
-                    <Send size={18} />
-                  </Button>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <Modal
-        show={showMediaModal}
-        onHide={() => setShowMediaModal(false)}
-        size="lg"
-        centered
-      >
-        <Modal.Body className="p-0">
-          {selectedMedia?.type === 'image' && (
-            <img src={selectedMedia.url} alt="media" style={{ width: '100%' }} />
+            ))
           )}
-        </Modal.Body>
-      </Modal>
-    </Container>
+          <div ref={messagesEndRef} />
+        </Container>
+      </div>
+
+      {/* Input Area - WhatsApp Style */}
+      <div className="bg-light p-3 shadow">
+        <Container>
+          <Form onSubmit={handleSendMessage}>
+            <div className="d-flex gap-2 align-items-center">
+              <Form.Control
+                as="textarea"
+                rows={1}
+                placeholder="Écrivez votre message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                disabled={sending}
+                className="border-0 shadow-sm"
+                style={{
+                  resize: 'none',
+                  borderRadius: '25px',
+                  paddingLeft: '20px',
+                  paddingRight: '20px',
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
+              />
+              <Button
+                type="submit"
+                disabled={!newMessage.trim() || sending}
+                className="rounded-circle d-flex align-items-center justify-content-center"
+                style={{ width: 48, height: 48 }}
+                variant="success"
+              >
+                {sending ? (
+                  <Spinner animation="border" size="sm" />
+                ) : (
+                  <Send size={20} />
+                )}
+              </Button>
+            </div>
+          </Form>
+        </Container>
+      </div>
+    </div>
   );
 };
 

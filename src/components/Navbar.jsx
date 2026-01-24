@@ -72,6 +72,7 @@ const NavbarComponent = () => {
           { to: '/formateur/formations', icon: BookOpen, label: 'Mes Formations' },
           { to: '/formateur/apprenants', icon: UserCheck, label: 'Apprenants' },
           { to: '/formateur/statistiques', icon: BarChart3, label: 'Statistiques' },
+          { to: '/formateur/communautes', icon: MessageSquare, label: 'Communautés' },
         ];
       
       case 'apprenant':

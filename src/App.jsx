@@ -38,6 +38,7 @@ import ManageFormation from './pages/formateur/ManageFormation';
 import ManageModule from './pages/formateur/ManageModule';
 import EditChapitre from './pages/formateur/EditChapitre';
 import ManageQuiz from './pages/formateur/ManageQuiz';
+import FormateurCommunautesPage from './pages/formateur/FormateurCommunautesPage';
 
 // Apprenant Pages
 import MesFormations from './pages/apprenant/MesFormations';
@@ -225,6 +226,15 @@ function App() {
               }
             />
 
+
+            <Route
+  path="/formateur/communautes"
+  element={
+    <PrivateRoute>
+      <FormateurCommunautesPage />
+    </PrivateRoute>
+  }
+/>
             {/* Apprenant Routes */}
             <Route
               path="/apprenant/mes-formations"
