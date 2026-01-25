@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  Container, Form, Button, Badge, Spinner, Alert 
+  Container, Form, Button, Badge, Spinner, Alert, Modal, Dropdown 
 } from 'react-bootstrap';
 import { 
-  Send, ArrowLeft, Shield, Users, AlertCircle
+  Send, ArrowLeft, Shield, Users, AlertCircle, Paperclip, 
+  Image, Video, Mic, FileText, Pin, Trash2, Edit2, 
+  Reply, MoreVertical, Smile, Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
@@ -14,21 +16,54 @@ const CommunauteView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
   const [communaute, setCommunaute] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  
+  // États pour les fichiers
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [messageType, setMessageType] = useState('text');
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  
+  // États pour les réponses
+  const [replyingTo, setReplyingTo] = useState(null);
+  
+  // États pour l'édition
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [editText, setEditText] = useState('');
+  
+  // États pour les emojis
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedMessageForEmoji, setSelectedMessageForEmoji] = useState(null);
+  
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const audioRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+
+  const emojis = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👏'];
+  const emojiMap = {
+    '👍': 'like',
+    '❤️': 'love',
+    '😂': 'laugh',
+    '😮': 'wow',
+    '😢': 'sad',
+    '🎉': 'party',
+    '🔥': 'fire',
+    '👏': 'clap'
+  };
 
   useEffect(() => {
     fetchData();
     
-    // Auto-refresh messages every 5 seconds
-   const interval = setInterval(() => {
-      fetchMessages(false); // Silent refresh
+    const interval = setInterval(() => {
+      fetchMessages(false);
     }, 5000);
 
     return () => clearInterval(interval);
@@ -40,16 +75,12 @@ const CommunauteView = () => {
 
   const fetchData = async () => {
     try {
-      console.log('🔵 Fetching communauté data...', { id });
       setError(null);
       
       const [comRes, msgRes] = await Promise.all([
         api.get(`/communautes/${id}`),
         api.get(`/communautes/${id}/messages`)
       ]);
-
-      console.log('✅ Communauté loaded:', comRes.data);
-      console.log('✅ Messages loaded:', msgRes.data.messages.data?.length || 0);
 
       if (comRes.data.success) {
         setCommunaute(comRes.data.communaute);
@@ -59,14 +90,10 @@ const CommunauteView = () => {
         setMessages(msgRes.data.messages.data || []);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement:', error);
-      console.error('❌ Response:', error.response);
-      
       const errorMsg = error.response?.data?.message || 'Erreur lors du chargement';
       setError(errorMsg);
       toast.error(errorMsg);
       
-      // Si 403, rediriger
       if (error.response?.status === 403) {
         setTimeout(() => navigate(-1), 2000);
       }
@@ -92,41 +119,171 @@ const CommunauteView = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Gestion des fichiers
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedFiles(files);
+    
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        setMessageType('image');
+      } else if (file.type.startsWith('video/')) {
+        setMessageType('video');
+      } else if (file.type.startsWith('audio/')) {
+        setMessageType('audio');
+      } else if (file.type === 'application/pdf') {
+        setMessageType('pdf');
+      } else {
+        setMessageType('file');
+      }
+      setShowFilePreview(true);
+    }
+  };
+
+  // Enregistrement audio
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks = [];
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const file = new File([blob], 'audio-message.webm', { type: 'audio/webm' });
+        setSelectedFiles([file]);
+        setMessageType('audio');
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+    } catch (error) {
+      toast.error('Impossible d\'accéder au microphone');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Envoyer un message
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
 
-    const messageContent = newMessage.trim();
     setSending(true);
     
     try {
-      console.log('📤 Sending message...', { message: messageContent });
+      const formData = new FormData();
+      formData.append('message', newMessage.trim());
+      formData.append('type', messageType);
       
-      const response = await api.post(`/communautes/${id}/messages`, {
-        message: messageContent
+      if (replyingTo) {
+        formData.append('parent_message_id', replyingTo.id);
+      }
+      
+      selectedFiles.forEach((file) => {
+        formData.append('files[]', file);
       });
 
-      console.log('✅ Message sent:', response.data);
+      const response = await api.post(`/communautes/${id}/messages`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       if (response.data.success) {
         setNewMessage('');
+        setSelectedFiles([]);
+        setMessageType('text');
+        setReplyingTo(null);
+        setShowFilePreview(false);
         
-        // Ajouter le message immédiatement à la liste
         setMessages(prev => [...prev, response.data.message]);
         
-        // Refresh complet pour être sûr
         setTimeout(() => fetchMessages(false), 500);
         
         toast.success('Message envoyé');
       }
     } catch (error) {
-      console.error('❌ Erreur envoi:', error);
-      console.error('❌ Response:', error.response);
-      
       const errorMsg = error.response?.data?.message || 'Erreur lors de l\'envoi';
       toast.error(errorMsg);
     } finally {
       setSending(false);
+    }
+  };
+
+  // Réagir à un message
+  const handleReaction = async (messageId, emoji) => {
+    try {
+      const reactionType = emojiMap[emoji];
+      const response = await api.post(`/communautes/messages/${messageId}/reactions`, {
+        reaction: reactionType
+      });
+
+      if (response.data.success) {
+        // Mettre à jour le message avec les nouvelles réactions
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, reactions: response.data.reactions }
+            : msg
+        ));
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la réaction');
+    }
+  };
+
+  // Épingler un message
+  const handlePinMessage = async (messageId) => {
+    try {
+      await api.post(`/communautes/messages/${messageId}/epingler`);
+      toast.success('Message épinglé');
+      fetchMessages(false);
+    } catch (error) {
+      toast.error('Erreur');
+    }
+  };
+
+  // Supprimer un message
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    
+    try {
+      await api.delete(`/communautes/messages/${messageId}`);
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      toast.success('Message supprimé');
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  // Modifier un message
+  const handleEditMessage = async (messageId) => {
+    if (!editText.trim()) return;
+    
+    try {
+      const response = await api.put(`/communautes/messages/${messageId}`, {
+        message: editText
+      });
+      
+      if (response.data.success) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId ? response.data.message : msg
+        ));
+        setEditingMessage(null);
+        setEditText('');
+        toast.success('Message modifié');
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la modification');
     }
   };
 
@@ -159,6 +316,99 @@ const CommunauteView = () => {
 
   const isMyMessage = (message) => {
     return message.user?.id === user?.id;
+  };
+
+  const renderMessageContent = (message) => {
+    if (message.type === 'text') {
+      return <div style={{ whiteSpace: 'pre-wrap' }}>{message.message}</div>;
+    }
+
+    if (message.type === 'image' && message.attachments) {
+      return (
+        <div>
+          {message.message && (
+            <div className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+              {message.message}
+            </div>
+          )}
+          {message.attachments.map((path, idx) => (
+            <img 
+              key={idx}
+              src={`http://localhost:8000/storage/${path}`}
+              alt="Image"
+              className="img-fluid rounded mb-2"
+              style={{ maxWidth: '300px' }}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    if (message.type === 'video' && message.attachments) {
+      return (
+        <div>
+          {message.message && (
+            <div className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+              {message.message}
+            </div>
+          )}
+          {message.attachments.map((path, idx) => (
+            <video 
+              key={idx}
+              controls 
+              className="rounded mb-2"
+              style={{ maxWidth: '300px' }}
+            >
+              <source src={`http://localhost:8000/storage/${path}`} />
+            </video>
+          ))}
+        </div>
+      );
+    }
+
+    if (message.type === 'audio' && message.attachments) {
+      return (
+        <div>
+          {message.message && (
+            <div className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+              {message.message}
+            </div>
+          )}
+          {message.attachments.map((path, idx) => (
+            <audio key={idx} controls className="w-100 mb-2">
+              <source src={`http://localhost:8000/storage/${path}`} />
+            </audio>
+          ))}
+        </div>
+      );
+    }
+
+    if ((message.type === 'pdf' || message.type === 'file') && message.attachments) {
+      return (
+        <div>
+          {message.message && (
+            <div className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>
+              {message.message}
+            </div>
+          )}
+          {message.attachments.map((path, idx) => (
+            <a 
+              key={idx}
+              href={`http://localhost:8000/storage/${path}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="d-flex align-items-center gap-2 text-decoration-none"
+            >
+              <FileText size={20} />
+              <span>{message.attachments_meta?.[idx]?.name || 'Fichier'}</span>
+              <Download size={16} />
+            </a>
+          ))}
+        </div>
+      );
+    }
+
+    return <div>{message.message}</div>;
   };
 
   if (loading) {
@@ -243,6 +493,23 @@ const CommunauteView = () => {
         </Alert>
       )}
 
+      {/* Répondre à... */}
+      {replyingTo && (
+        <div className="bg-light p-2 d-flex justify-content-between align-items-center">
+          <div className="small">
+            <strong>Répondre à {replyingTo.user?.name}</strong>
+            <div className="text-muted">{replyingTo.message.substring(0, 50)}...</div>
+          </div>
+          <Button 
+            variant="link" 
+            size="sm"
+            onClick={() => setReplyingTo(null)}
+          >
+            ✕
+          </Button>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div 
         ref={messagesContainerRef}
@@ -266,7 +533,7 @@ const CommunauteView = () => {
                 className={`d-flex mb-3 ${isMyMessage(message) ? 'justify-content-end' : 'justify-content-start'}`}
               >
                 <div
-                  className={`rounded px-3 py-2 shadow-sm ${
+                  className={`rounded px-3 py-2 shadow-sm position-relative ${
                     isMyMessage(message)
                       ? 'bg-success text-white'
                       : 'bg-white text-dark'
@@ -277,6 +544,62 @@ const CommunauteView = () => {
                     wordBreak: 'break-word'
                   }}
                 >
+                  {/* Menu contextuel */}
+                  <Dropdown className="position-absolute top-0 end-0 mt-1 me-1">
+                    <Dropdown.Toggle 
+                      variant="link" 
+                      size="sm"
+                      className={isMyMessage(message) ? 'text-white' : 'text-dark'}
+                      style={{ padding: 0 }}
+                    >
+                      <MoreVertical size={16} />
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                      <Dropdown.Item onClick={() => setReplyingTo(message)}>
+                        <Reply size={14} className="me-2" />
+                        Répondre
+                      </Dropdown.Item>
+                      {isMyMessage(message) && (
+                        <>
+                          <Dropdown.Item onClick={() => {
+                            setEditingMessage(message);
+                            setEditText(message.message);
+                          }}>
+                            <Edit2 size={14} className="me-2" />
+                            Modifier
+                          </Dropdown.Item>
+                          <Dropdown.Item 
+                            onClick={() => handleDeleteMessage(message.id)}
+                            className="text-danger"
+                          >
+                            <Trash2 size={14} className="me-2" />
+                            Supprimer
+                          </Dropdown.Item>
+                        </>
+                      )}
+                      {communaute.mon_role === 'admin' && (
+                        <Dropdown.Item onClick={() => handlePinMessage(message.id)}>
+                          <Pin size={14} className="me-2" />
+                          Épingler
+                        </Dropdown.Item>
+                      )}
+                    </Dropdown.Menu>
+                  </Dropdown>
+
+                  {/* Réponse à un message */}
+                  {message.parent && (
+                    <div 
+                      className="mb-2 p-2 rounded"
+                      style={{ 
+                        backgroundColor: isMyMessage(message) ? 'rgba(255,255,255,0.2)' : '#f0f0f0',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      <strong>{message.parent.user?.name}</strong>
+                      <div className="text-truncate">{message.parent.message}</div>
+                    </div>
+                  )}
+
                   {/* Auteur (si pas mon message) */}
                   {!isMyMessage(message) && (
                     <div 
@@ -305,9 +628,44 @@ const CommunauteView = () => {
                   )}
                   
                   {/* Contenu du message */}
-                  <div style={{ whiteSpace: 'pre-wrap' }}>
-                    {message.message}
-                  </div>
+                  {editingMessage?.id === message.id ? (
+                    <Form.Control
+                      as="textarea"
+                      rows={2}
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onBlur={() => handleEditMessage(message.id)}
+                      autoFocus
+                    />
+                  ) : (
+                    renderMessageContent(message)
+                  )}
+
+                  {console.log('Reactions structure:', message.reactions)}
+   {/* Réactions */}
+{message.reactions && message.reactions.length > 0 && (
+  <div className="mt-2 d-flex gap-1 flex-wrap">
+    {/* Si reactions est un tableau d'objets */}
+    {message.reactions.map((reaction, index) => {
+      // Trouver l'emoji correspondant
+      const emojiChar = Object.keys(emojiMap).find(
+        key => emojiMap[key] === reaction.reaction
+      );
+      
+      return (
+        <Badge 
+          key={index}
+          bg="light" 
+          text="dark"
+          style={{ cursor: 'pointer' }}
+          onClick={() => handleReaction(message.id, emojiChar)}
+        >
+          {emojiChar} 
+        </Badge>
+      );
+    })}
+  </div>
+)}
                   
                   {/* Heure */}
                   <div 
@@ -320,6 +678,20 @@ const CommunauteView = () => {
                     {formatMessageTime(message.created_at)}
                     {message.is_edited && ' (modifié)'}
                   </div>
+
+                  {/* Bouton réaction */}
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="position-absolute bottom-0 end-0 p-0 me-2 mb-1"
+                    onClick={() => {
+                      setSelectedMessageForEmoji(message.id);
+                      setShowEmojiPicker(true);
+                    }}
+                    style={{ fontSize: '1.2rem' }}
+                  >
+                    <Smile size={16} />
+                  </Button>
                 </div>
               </div>
             ))
@@ -331,8 +703,76 @@ const CommunauteView = () => {
       {/* Input Area */}
       <div className="bg-light p-3 shadow">
         <Container>
+          {/* Preview des fichiers sélectionnés */}
+          {selectedFiles.length > 0 && (
+            <div className="mb-2 p-2 bg-white rounded">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <strong>Fichiers sélectionnés :</strong>
+                <Button 
+                  variant="link" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedFiles([]);
+                    setMessageType('text');
+                  }}
+                >
+                  ✕
+                </Button>
+              </div>
+              {selectedFiles.map((file, idx) => (
+                <div key={idx} className="small">
+                  📎 {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                </div>
+              ))}
+            </div>
+          )}
+
           <Form onSubmit={handleSendMessage}>
-            <div className="d-flex gap-2 align-items-center">
+            <div className="d-flex gap-2 align-items-end">
+              {/* Boutons d'attachement */}
+              <Dropdown>
+                <Dropdown.Toggle 
+                  variant="outline-secondary"
+                  className="rounded-circle"
+                  style={{ width: 48, height: 48 }}
+                  disabled={communaute.is_muted}
+                >
+                  <Paperclip size={20} />
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                  <Dropdown.Item onClick={() => {
+                    fileInputRef.current.accept = 'image/*';
+                    fileInputRef.current.click();
+                  }}>
+                    <Image size={16} className="me-2" />
+                    Image
+                  </Dropdown.Item>
+                  <Dropdown.Item onClick={() => {
+                    fileInputRef.current.accept = 'video/*';
+                    fileInputRef.current.click();
+                  }}>
+                    <Video size={16} className="me-2" />
+                    Vidéo
+                  </Dropdown.Item>
+                  <Dropdown.Item onClick={() => {
+                    fileInputRef.current.accept = '.pdf,.doc,.docx';
+                    fileInputRef.current.click();
+                  }}>
+                    <FileText size={16} className="me-2" />
+                    Document
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                onChange={handleFileSelect}
+                multiple
+              />
+
+              {/* Input texte */}
               <Form.Control
                 as="textarea"
                 rows={1}
@@ -354,9 +794,25 @@ const CommunauteView = () => {
                   }
                 }}
               />
+
+              {/* Bouton audio */}
+              <Button
+                variant="outline-secondary"
+                className="rounded-circle"
+                style={{ width: 48, height: 48 }}
+                disabled={communaute.is_muted}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+              >
+                <Mic size={20} className={isRecording ? 'text-danger' : ''} />
+              </Button>
+
+              {/* Bouton envoyer */}
               <Button
                 type="submit"
-                disabled={!newMessage.trim() || sending || communaute.is_muted}
+                disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || communaute.is_muted}
                 className="rounded-circle d-flex align-items-center justify-content-center"
                 style={{ width: 48, height: 48 }}
                 variant="success"
@@ -371,6 +827,35 @@ const CommunauteView = () => {
           </Form>
         </Container>
       </div>
+
+      {/* Modal Emoji Picker */}
+      <Modal 
+        show={showEmojiPicker} 
+        onHide={() => setShowEmojiPicker(false)}
+        centered
+        size="sm"
+      >
+        <Modal.Body>
+          <div className="d-flex justify-content-around p-3">
+            {emojis.map((emoji) => (
+              <Button
+               key={emoji}
+                variant="link"
+                style={{ fontSize: '2rem' }}
+                onClick={() => {
+                  if (selectedMessageForEmoji) {
+                    handleReaction(selectedMessageForEmoji, emoji);
+                    setShowEmojiPicker(false);
+                    setSelectedMessageForEmoji(null);
+                  }
+                }}
+              >
+                {emoji}
+              </Button>
+            ))}
+          </div>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 };
