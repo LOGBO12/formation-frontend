@@ -13,6 +13,7 @@ import HomePage from './pages/public/HomePage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import FormationDetailPage from "./pages/apprenant/FormationDetailPage";
 
 // Onboarding Pages
 import SelectRole from './pages/onboarding/SelectRole';
@@ -79,6 +80,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/formations/:lienPublic" element={<FormationDetailPage />} />
 
             {/* Onboarding Routes */}
             <Route
