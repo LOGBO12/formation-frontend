@@ -27,7 +27,6 @@ const CommunauteView = () => {
   // États pour les fichiers
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [messageType, setMessageType] = useState('text');
-  const [showFilePreview, setShowFilePreview] = useState(false);
   
   // États pour les réponses
   const [replyingTo, setReplyingTo] = useState(null);
@@ -43,9 +42,10 @@ const CommunauteView = () => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
-  const audioRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [shouldScroll, setShouldScroll] = useState(true);
+  const prevMessagesLength = useRef(0);
 
   const emojis = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👏'];
   const emojiMap = {
@@ -69,9 +69,28 @@ const CommunauteView = () => {
     return () => clearInterval(interval);
   }, [id]);
 
+  // Scroll intelligent - seulement si nouveaux messages
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (messages.length > prevMessagesLength.current && shouldScroll) {
+      scrollToBottom();
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, shouldScroll]);
+
+  // Détecter si l'utilisateur a scrollé manuellement
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShouldScroll(isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -88,6 +107,8 @@ const CommunauteView = () => {
       
       if (msgRes.data.success) {
         setMessages(msgRes.data.messages.data || []);
+        // Premier chargement, on scroll
+        setTimeout(() => scrollToBottom(), 100);
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Erreur lors du chargement';
@@ -122,23 +143,30 @@ const CommunauteView = () => {
   // Gestion des fichiers
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
+    
+    if (files.length === 0) return;
+
+    console.log('📎 Fichiers sélectionnés:', files);
+
     setSelectedFiles(files);
     
-    if (files.length > 0) {
-      const file = files[0];
-      if (file.type.startsWith('image/')) {
-        setMessageType('image');
-      } else if (file.type.startsWith('video/')) {
-        setMessageType('video');
-      } else if (file.type.startsWith('audio/')) {
-        setMessageType('audio');
-      } else if (file.type === 'application/pdf') {
-        setMessageType('pdf');
-      } else {
-        setMessageType('file');
-      }
-      setShowFilePreview(true);
+    const file = files[0];
+    const mimeType = file.type;
+
+    // Déterminer le type de message selon le MIME type
+    if (mimeType.startsWith('image/')) {
+      setMessageType('image');
+    } else if (mimeType.startsWith('video/')) {
+      setMessageType('video');
+    } else if (mimeType.startsWith('audio/')) {
+      setMessageType('audio');
+    } else if (mimeType === 'application/pdf') {
+      setMessageType('pdf');
+    } else {
+      setMessageType('file');
     }
+
+    console.log('📝 Type de message:', messageType);
   };
 
   // Enregistrement audio
@@ -151,22 +179,25 @@ const CommunauteView = () => {
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], 'audio-message.webm', { type: 'audio/webm' });
+        const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
         setSelectedFiles([file]);
         setMessageType('audio');
         stream.getTracks().forEach(track => track.stop());
+        toast.success('Audio enregistré !');
       };
 
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
+      toast.success('Enregistrement en cours...');
     } catch (error) {
+      console.error('Erreur microphone:', error);
       toast.error('Impossible d\'accéder au microphone');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorder) {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       setIsRecording(false);
     }
@@ -176,7 +207,10 @@ const CommunauteView = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!newMessage.trim() && selectedFiles.length === 0) return;
+    if (!newMessage.trim() && selectedFiles.length === 0) {
+      toast.error('Veuillez saisir un message ou sélectionner un fichier');
+      return;
+    }
 
     setSending(true);
     
@@ -189,9 +223,15 @@ const CommunauteView = () => {
         formData.append('parent_message_id', replyingTo.id);
       }
       
-      selectedFiles.forEach((file) => {
+      // Ajouter les fichiers
+      selectedFiles.forEach((file, index) => {
         formData.append('files[]', file);
+        console.log(`Ajout fichier ${index}:`, file.name, file.type, file.size);
       });
+
+      console.log('📤 Envoi du message...');
+      console.log('Type:', messageType);
+      console.log('Fichiers:', selectedFiles.length);
 
       const response = await api.post(`/communautes/${id}/messages`, formData, {
         headers: {
@@ -200,21 +240,38 @@ const CommunauteView = () => {
       });
 
       if (response.data.success) {
+        console.log('✅ Message envoyé avec succès');
+        
+        // Réinitialiser
         setNewMessage('');
         setSelectedFiles([]);
         setMessageType('text');
         setReplyingTo(null);
-        setShowFilePreview(false);
         
+        // Ajouter le message immédiatement
         setMessages(prev => [...prev, response.data.message]);
         
+        // Forcer le scroll vers le bas
+        setShouldScroll(true);
+        setTimeout(() => scrollToBottom(), 100);
+        
+        // Refresh après 500ms
         setTimeout(() => fetchMessages(false), 500);
         
-        toast.success('Message envoyé');
+        toast.success('Message envoyé !');
       }
     } catch (error) {
+      console.error('❌ Erreur envoi:', error);
+      console.error('Response:', error.response?.data);
+      
       const errorMsg = error.response?.data?.message || 'Erreur lors de l\'envoi';
-      toast.error(errorMsg);
+      const errors = error.response?.data?.errors;
+      
+      if (errors) {
+        Object.values(errors).flat().forEach(err => toast.error(err));
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setSending(false);
     }
@@ -229,7 +286,6 @@ const CommunauteView = () => {
       });
 
       if (response.data.success) {
-        // Mettre à jour le message avec les nouvelles réactions
         setMessages(prev => prev.map(msg => 
           msg.id === messageId 
             ? { ...msg, reactions: response.data.reactions }
@@ -308,8 +364,7 @@ const CommunauteView = () => {
     } else {
       return messageDate.toLocaleDateString('fr-FR', {
         day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
+        month: '2-digit'
       }) + ' ' + timeString;
     }
   };
@@ -323,7 +378,9 @@ const CommunauteView = () => {
       return <div style={{ whiteSpace: 'pre-wrap' }}>{message.message}</div>;
     }
 
-    if (message.type === 'image' && message.attachments) {
+    const baseUrl = 'http://localhost:8000/storage/';
+
+    if (message.type === 'image' && message.attachments && message.attachments.length > 0) {
       return (
         <div>
           {message.message && (
@@ -334,17 +391,18 @@ const CommunauteView = () => {
           {message.attachments.map((path, idx) => (
             <img 
               key={idx}
-              src={`http://localhost:8000/storage/${path}`}
+              src={`${baseUrl}${path}`}
               alt="Image"
               className="img-fluid rounded mb-2"
-              style={{ maxWidth: '300px' }}
+              style={{ maxWidth: '300px', cursor: 'pointer' }}
+              onClick={() => window.open(`${baseUrl}${path}`, '_blank')}
             />
           ))}
         </div>
       );
     }
 
-    if (message.type === 'video' && message.attachments) {
+    if (message.type === 'video' && message.attachments && message.attachments.length > 0) {
       return (
         <div>
           {message.message && (
@@ -359,14 +417,15 @@ const CommunauteView = () => {
               className="rounded mb-2"
               style={{ maxWidth: '300px' }}
             >
-              <source src={`http://localhost:8000/storage/${path}`} />
+              <source src={`${baseUrl}${path}`} />
+              Votre navigateur ne supporte pas la vidéo.
             </video>
           ))}
         </div>
       );
     }
 
-    if (message.type === 'audio' && message.attachments) {
+    if (message.type === 'audio' && message.attachments && message.attachments.length > 0) {
       return (
         <div>
           {message.message && (
@@ -375,15 +434,18 @@ const CommunauteView = () => {
             </div>
           )}
           {message.attachments.map((path, idx) => (
-            <audio key={idx} controls className="w-100 mb-2">
-              <source src={`http://localhost:8000/storage/${path}`} />
-            </audio>
+            <div key={idx} className="bg-light p-2 rounded mb-2">
+              <audio controls className="w-100">
+                <source src={`${baseUrl}${path}`} />
+                Votre navigateur ne supporte pas l'audio.
+              </audio>
+            </div>
           ))}
         </div>
       );
     }
 
-    if ((message.type === 'pdf' || message.type === 'file') && message.attachments) {
+    if ((message.type === 'pdf' || message.type === 'file') && message.attachments && message.attachments.length > 0) {
       return (
         <div>
           {message.message && (
@@ -391,19 +453,29 @@ const CommunauteView = () => {
               {message.message}
             </div>
           )}
-          {message.attachments.map((path, idx) => (
-            <a 
-              key={idx}
-              href={`http://localhost:8000/storage/${path}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="d-flex align-items-center gap-2 text-decoration-none"
-            >
-              <FileText size={20} />
-              <span>{message.attachments_meta?.[idx]?.name || 'Fichier'}</span>
-              <Download size={16} />
-            </a>
-          ))}
+          {message.attachments.map((path, idx) => {
+            const meta = message.attachments_meta?.[idx];
+            return (
+              <a 
+                key={idx}
+                href={`${baseUrl}${path}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="d-flex align-items-center gap-2 text-decoration-none bg-light p-2 rounded"
+              >
+                <FileText size={20} />
+                <div className="flex-grow-1">
+                  <div>{meta?.name || 'Fichier'}</div>
+                  {meta?.size && (
+                    <small className="text-muted">
+                      {(meta.size / 1024).toFixed(2)} KB
+                    </small>
+                  )}
+                </div>
+                <Download size={16} />
+              </a>
+            );
+          })}
         </div>
       );
     }
@@ -443,7 +515,7 @@ const CommunauteView = () => {
 
   return (
     <div className="vh-100 d-flex flex-column" style={{ backgroundColor: '#e5ddd5' }}>
-      {/* Header WhatsApp Style */}
+      {/* Header */}
       <div className="bg-success text-white shadow-sm p-3">
         <Container>
           <div className="d-flex align-items-center justify-content-between">
@@ -498,7 +570,7 @@ const CommunauteView = () => {
         <div className="bg-light p-2 d-flex justify-content-between align-items-center">
           <div className="small">
             <strong>Répondre à {replyingTo.user?.name}</strong>
-            <div className="text-muted">{replyingTo.message.substring(0, 50)}...</div>
+            <div className="text-muted">{replyingTo.message?.substring(0, 50)}...</div>
           </div>
           <Button 
             variant="link" 
@@ -514,10 +586,7 @@ const CommunauteView = () => {
       <div 
         ref={messagesContainerRef}
         className="flex-grow-1 overflow-auto p-3" 
-        style={{ 
-          backgroundImage: 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0icGF0dGVybiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIj48cGF0aCBkPSJNMCAwSDQwVjQwSDB6IiBmaWxsPSIjZTVkZGQ1Ii8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0idXJsKCNwYXR0ZXJuKSIvPjwvc3ZnPg==)',
-          backgroundColor: '#e5ddd5'
-        }}
+        style={{ backgroundColor: '#e5ddd5' }}
       >
         <Container>
           {messages.length === 0 ? (
@@ -549,8 +618,7 @@ const CommunauteView = () => {
                     <Dropdown.Toggle 
                       variant="link" 
                       size="sm"
-                      className={isMyMessage(message) ? 'text-white' : 'text-dark'}
-                      style={{ padding: 0 }}
+                      className={`p-0 ${isMyMessage(message) ? 'text-white' : 'text-dark'}`}
                     >
                       <MoreVertical size={16} />
                     </Dropdown.Toggle>
@@ -559,11 +627,11 @@ const CommunauteView = () => {
                         <Reply size={14} className="me-2" />
                         Répondre
                       </Dropdown.Item>
-                      {isMyMessage(message) && (
+                      {isMyMessage(message) && message.type === 'text' && (
                         <>
                           <Dropdown.Item onClick={() => {
                             setEditingMessage(message);
-                            setEditText(message.message);
+                            setEditText(message.message || '');
                           }}>
                             <Edit2 size={14} className="me-2" />
                             Modifier
@@ -589,10 +657,9 @@ const CommunauteView = () => {
                   {/* Réponse à un message */}
                   {message.parent && (
                     <div 
-                      className="mb-2 p-2 rounded"
+                      className="mb-2 p-2 rounded small"
                       style={{ 
-                        backgroundColor: isMyMessage(message) ? 'rgba(255,255,255,0.2)' : '#f0f0f0',
-                        fontSize: '0.85rem'
+                        backgroundColor: isMyMessage(message) ? 'rgba(255,255,255,0.2)' : '#f0f0f0'
                       }}
                     >
                       <strong>{message.parent.user?.name}</strong>
@@ -600,80 +667,70 @@ const CommunauteView = () => {
                     </div>
                   )}
 
-                  {/* Auteur (si pas mon message) */}
+                  {/* Auteur */}
                   {!isMyMessage(message) && (
                     <div 
-                      className="fw-bold mb-1" 
-                      style={{ 
-                        fontSize: '0.85rem', 
-                        color: '#075e54' 
-                      }}
+                      className="fw-bold mb-1 small" 
+                      style={{ color: '#075e54' }}
                     >
                       {message.user?.name || 'Utilisateur'}
                     </div>
                   )}
                   
-                  {/* Badge annonce */}
+                  {/* Badges */}
                   {message.is_announcement && (
-                    <Badge bg="warning" className="mb-2">
-                      📢 Annonce
-                    </Badge>
+                    <Badge bg="warning" className="mb-2">📢 Annonce</Badge>
                   )}
-                  
-                  {/* Badge épinglé */}
                   {message.is_pinned && (
-                    <Badge bg="info" className="mb-2 ms-2">
-                      📌 Épinglé
-                    </Badge>
+                    <Badge bg="info" className="mb-2 ms-2">📌 Épinglé</Badge>
                   )}
                   
-                  {/* Contenu du message */}
+                  {/* Contenu */}
                   {editingMessage?.id === message.id ? (
                     <Form.Control
                       as="textarea"
                       rows={2}
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
-                      onBlur={() => handleEditMessage(message.id)}
+                      //onBlur={() => handleEditMessage(message.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleEditMessage(message.id);
+                        }
+                      }}
                       autoFocus
                     />
                   ) : (
                     renderMessageContent(message)
                   )}
 
-                  {console.log('Reactions structure:', message.reactions)}
-   {/* Réactions */}
-{message.reactions && message.reactions.length > 0 && (
-  <div className="mt-2 d-flex gap-1 flex-wrap">
-    {/* Si reactions est un tableau d'objets */}
-    {message.reactions.map((reaction, index) => {
-      // Trouver l'emoji correspondant
-      const emojiChar = Object.keys(emojiMap).find(
-        key => emojiMap[key] === reaction.reaction
-      );
-      
-      return (
-        <Badge 
-          key={index}
-          bg="light" 
-          text="dark"
-          style={{ cursor: 'pointer' }}
-          onClick={() => handleReaction(message.id, emojiChar)}
-        >
-          {emojiChar} 
-        </Badge>
-      );
-    })}
-  </div>
-)}
+                  {/* Réactions */}
+                  {message.reactions && message.reactions.length > 0 && (
+                    <div className="mt-2 d-flex gap-1 flex-wrap">
+                      {message.reactions.map((reaction, index) => {
+                        const emojiChar = Object.keys(emojiMap).find(
+                          key => emojiMap[key] === reaction.reaction
+                        );
+                        return (
+                          <Badge 
+                            key={index}
+                            bg="light" 
+                            text="dark"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => handleReaction(message.id, emojiChar)}
+                          >
+                            {emojiChar}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
                   
                   {/* Heure */}
                   <div 
-                    className="text-end mt-1" 
-                    style={{ 
-                      fontSize: '0.7rem',
-                      opacity: 0.7
-                    }}
+                    className="text-end mt-1 small"
+                    style={{ opacity: 0.7 }}
                   >
                     {formatMessageTime(message.created_at)}
                     {message.is_edited && ' (modifié)'}
@@ -688,7 +745,6 @@ const CommunauteView = () => {
                       setSelectedMessageForEmoji(message.id);
                       setShowEmojiPicker(true);
                     }}
-                    style={{ fontSize: '1.2rem' }}
                   >
                     <Smile size={16} />
                   </Button>
@@ -703,24 +759,25 @@ const CommunauteView = () => {
       {/* Input Area */}
       <div className="bg-light p-3 shadow">
         <Container>
-          {/* Preview des fichiers sélectionnés */}
+          {/* Preview des fichiers */}
           {selectedFiles.length > 0 && (
             <div className="mb-2 p-2 bg-white rounded">
               <div className="d-flex justify-content-between align-items-center mb-2">
-                <strong>Fichiers sélectionnés :</strong>
+                <strong className="small">Fichiers sélectionnés :</strong>
                 <Button 
                   variant="link" 
                   size="sm"
+                  className="text-danger"
                   onClick={() => {
                     setSelectedFiles([]);
                     setMessageType('text');
                   }}
                 >
-                  ✕
+                  ✕ Annuler
                 </Button>
               </div>
               {selectedFiles.map((file, idx) => (
-                <div key={idx} className="small">
+                <div key={idx} className="small text-muted">
                   📎 {file.name} ({(file.size / 1024).toFixed(2)} KB)
                 </div>
               ))}
@@ -755,7 +812,7 @@ const CommunauteView = () => {
                     Vidéo
                   </Dropdown.Item>
                   <Dropdown.Item onClick={() => {
-                    fileInputRef.current.accept = '.pdf,.doc,.docx';
+                    fileInputRef.current.accept = '.pdf,.doc,.docx,.txt';
                     fileInputRef.current.click();
                   }}>
                     <FileText size={16} className="me-2" />
@@ -785,9 +842,9 @@ const CommunauteView = () => {
                   resize: 'none',
                   borderRadius: '25px',
                   paddingLeft: '20px',
-                  paddingRight: '20px',
+                  paddingRight: '20px'
                 }}
-                onKeyPress={(e) => {
+               onKeyPress={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage(e);
@@ -795,27 +852,24 @@ const CommunauteView = () => {
                 }}
               />
 
-              {/* Bouton audio */}
+              {/* Bouton micro */}
               <Button
-                variant="outline-secondary"
+                variant={isRecording ? 'danger' : 'outline-secondary'}
                 className="rounded-circle"
                 style={{ width: 48, height: 48 }}
+                onClick={isRecording ? stopRecording : startRecording}
                 disabled={communaute.is_muted}
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
               >
-                <Mic size={20} className={isRecording ? 'text-danger' : ''} />
+                <Mic size={20} />
               </Button>
 
               {/* Bouton envoyer */}
               <Button
                 type="submit"
-                disabled={(!newMessage.trim() && selectedFiles.length === 0) || sending || communaute.is_muted}
-                className="rounded-circle d-flex align-items-center justify-content-center"
-                style={{ width: 48, height: 48 }}
                 variant="success"
+                className="rounded-circle"
+                style={{ width: 48, height: 48 }}
+                disabled={sending || communaute.is_muted || (!newMessage.trim() && selectedFiles.length === 0)}
               >
                 {sending ? (
                   <Spinner animation="border" size="sm" />
@@ -831,23 +885,29 @@ const CommunauteView = () => {
       {/* Modal Emoji Picker */}
       <Modal 
         show={showEmojiPicker} 
-        onHide={() => setShowEmojiPicker(false)}
+        onHide={() => {
+          setShowEmojiPicker(false);
+          setSelectedMessageForEmoji(null);
+        }}
         centered
-        size="sm"
       >
+        <Modal.Header closeButton>
+          <Modal.Title>Choisir une réaction</Modal.Title>
+        </Modal.Header>
         <Modal.Body>
-          <div className="d-flex justify-content-around p-3">
-            {emojis.map((emoji) => (
+          <div className="d-flex justify-content-around flex-wrap gap-3">
+            {emojis.map((emoji, index) => (
               <Button
-               key={emoji}
-                variant="link"
-                style={{ fontSize: '2rem' }}
+                key={index}
+                variant="light"
+                size="lg"
+                style={{ fontSize: '2rem', width: '60px', height: '60px' }}
                 onClick={() => {
                   if (selectedMessageForEmoji) {
                     handleReaction(selectedMessageForEmoji, emoji);
-                    setShowEmojiPicker(false);
-                    setSelectedMessageForEmoji(null);
                   }
+                  setShowEmojiPicker(false);
+                  setSelectedMessageForEmoji(null);
                 }}
               >
                 {emoji}
