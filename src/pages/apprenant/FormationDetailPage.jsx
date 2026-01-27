@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Badge, Modal, Form, Alert } from 'react-bootstrap';
-import { ArrowLeft, Users, Clock, BookOpen, Award, DollarSign, CreditCard } from 'lucide-react';
+import { Container, Row, Col, Card, Button, Badge, Modal, Form, Alert, InputGroup } from 'react-bootstrap';
+import { ArrowLeft, Users, Clock, BookOpen, Award, DollarSign, CreditCard, Shield, Info } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
 const FormationDetailPage = () => {
   const { lienPublic } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formation, setFormation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -31,6 +33,13 @@ const FormationDetailPage = () => {
   };
 
   const handleInscription = async () => {
+    // Vérifier si l'utilisateur est connecté
+    if (!user) {
+      toast.error('Veuillez vous connecter pour vous inscrire');
+      navigate('/login');
+      return;
+    }
+
     try {
       if (!formation.is_free) {
         // Ouvrir le modal de paiement
@@ -42,12 +51,25 @@ const FormationDetailPage = () => {
         navigate('/apprenant/mes-formations');
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Erreur');
+      const message = error.response?.data?.message;
+      if (message === 'Vous êtes déjà inscrit à cette formation') {
+        toast.success('Vous êtes déjà inscrit à cette formation !');
+        navigate('/apprenant/mes-formations');
+      } else {
+        toast.error(message || 'Erreur lors de l\'inscription');
+      }
     }
   };
 
   const handlePayment = async (e) => {
     e.preventDefault();
+    
+    // Validation du numéro
+    if (!phoneNumber || phoneNumber.length < 8) {
+      toast.error('Veuillez entrer un numéro de téléphone valide');
+      return;
+    }
+    
     setProcessingPayment(true);
 
     try {
@@ -57,12 +79,21 @@ const FormationDetailPage = () => {
 
       // Rediriger vers FedaPay
       if (response.data.payment_url) {
-        window.location.href = response.data.payment_url;
+        toast.success('Redirection vers la page de paiement...');
+        setTimeout(() => {
+          window.location.href = response.data.payment_url;
+        }, 1000);
       } else {
         toast.error('Erreur lors de l\'initialisation du paiement');
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Erreur de paiement');
+      const message = error.response?.data?.message;
+      if (message === 'Vous êtes déjà inscrit à cette formation') {
+        toast.success('Vous êtes déjà inscrit !');
+        navigate('/apprenant/mes-formations');
+      } else {
+        toast.error(message || 'Erreur de paiement');
+      }
     } finally {
       setProcessingPayment(false);
     }
@@ -119,14 +150,16 @@ const FormationDetailPage = () => {
                     <Badge bg="success">Gratuit</Badge>
                   ) : (
                     <Badge bg="warning" className="text-dark">
-                      {formation.prix} FCFA
+                      {parseFloat(formation.prix).toLocaleString()} FCFA
                     </Badge>
                   )}
                 </div>
                 <p className="text-muted mb-3">Par {formation.formateur.name}</p>
                 <hr />
                 <h5 className="fw-bold mb-3">Description</h5>
-                <p className="text-justify">{formation.description}</p>
+                <p className="text-justify" style={{ whiteSpace: 'pre-wrap' }}>
+                  {formation.description}
+                </p>
               </Card.Body>
             </Card>
 
@@ -134,7 +167,7 @@ const FormationDetailPage = () => {
             {formation.modules && formation.modules.length > 0 && (
               <Card className="border-0 shadow-sm">
                 <Card.Header className="bg-white">
-                  <h5 className="mb-0">Contenu de la formation</h5>
+                  <h5 className="mb-0">📚 Contenu de la formation</h5>
                 </Card.Header>
                 <Card.Body>
                   <div className="mb-3">
@@ -159,11 +192,19 @@ const FormationDetailPage = () => {
               <Card.Body>
                 <div className="text-center mb-4">
                   {formation.is_free ? (
-                    <h2 className="fw-bold text-success">Gratuit</h2>
+                    <>
+                      <h2 className="fw-bold text-success mb-2">Gratuit</h2>
+                      <p className="text-muted small mb-0">Formation entièrement gratuite</p>
+                    </>
                   ) : (
                     <>
-                      <h2 className="fw-bold text-primary">{formation.prix} FCFA</h2>
-                      <small className="text-muted">Paiement sécurisé via FedaPay</small>
+                      <h2 className="fw-bold text-primary mb-2">
+                        {parseFloat(formation.prix).toLocaleString()} FCFA
+                      </h2>
+                      <div className="d-flex align-items-center justify-content-center text-muted small">
+                        <Shield size={14} className="me-1" />
+                        <span>Paiement sécurisé via FedaPay</span>
+                      </div>
                     </>
                   )}
                 </div>
@@ -184,6 +225,17 @@ const FormationDetailPage = () => {
                     )}
                   </Button>
                 </div>
+
+                {/* Info sur la garantie (si payant) */}
+                {!formation.is_free && (
+                  <Alert variant="info" className="mb-4 small">
+                    <Info size={16} className="me-2" />
+                    <strong>Paiement sécurisé</strong>
+                    <p className="mb-0 mt-2">
+                      Accès immédiat après paiement. Paiement par Mobile Money ou Carte bancaire.
+                    </p>
+                  </Alert>
+                )}
 
                 <div className="mb-3">
                   <div className="d-flex align-items-center mb-2">
@@ -228,56 +280,98 @@ const FormationDetailPage = () => {
       <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>
-            <DollarSign size={24} className="me-2" />
+            <CreditCard size={24} className="me-2" />
             Paiement sécurisé
           </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handlePayment}>
           <Modal.Body>
             <Alert variant="info" className="small">
-              Vous allez être redirigé vers FedaPay pour effectuer le paiement de manière sécurisée.
+              <Shield size={16} className="me-2" />
+              Vous allez être redirigé vers <strong>FedaPay</strong> pour effectuer le paiement de manière sécurisée.
             </Alert>
 
+            {/* Récapitulatif */}
             <div className="mb-4 p-3 bg-light rounded">
+              <h6 className="fw-bold mb-3">Récapitulatif</h6>
               <div className="d-flex justify-content-between mb-2">
-                <span>Formation :</span>
+                <span className="text-muted">Formation :</span>
                 <strong>{formation.titre}</strong>
               </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="text-muted">Formateur :</span>
+                <span>{formation.formateur.name}</span>
+              </div>
+              <hr className="my-2" />
               <div className="d-flex justify-content-between">
-                <span>Montant :</span>
-                <strong className="text-primary">{formation.prix} FCFA</strong>
+                <strong>Montant total :</strong>
+                <strong className="text-primary fs-5">
+                  {parseFloat(formation.prix).toLocaleString()} FCFA
+                </strong>
               </div>
             </div>
 
+            {/* Numéro de téléphone */}
             <Form.Group className="mb-3">
-              <Form.Label>Numéro de téléphone *</Form.Label>
-              <Form.Control
-                type="tel"
-                placeholder="+229 XX XX XX XX"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                required
-              />
+              <Form.Label>Numéro de téléphone Mobile Money *</Form.Label>
+              <InputGroup>
+                <InputGroup.Text>📱</InputGroup.Text>
+                <Form.Control
+                  type="tel"
+                  placeholder="Ex: +229 97 00 00 01"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                />
+              </InputGroup>
               <Form.Text className="text-muted">
-                Format : +229XXXXXXXX (Bénin), +228XXXXXXXX (Togo), etc.
+                Format international : +229XXXXXXXX (Bénin), +228XXXXXXXX (Togo)
               </Form.Text>
             </Form.Group>
 
+            {/* Méthodes de paiement */}
             <Alert variant="success" className="small mb-0">
-              <strong>Méthodes de paiement acceptées :</strong>
+              <strong>💳 Méthodes de paiement acceptées :</strong>
               <div className="mt-2">
-                • MTN Mobile Money<br />
-                • Moov Money<br />
-                • Carte bancaire
+                <div className="d-flex align-items-center mb-1">
+                  <span className="badge bg-success me-2">MTN</span>
+                  MTN Mobile Money
+                </div>
+                <div className="d-flex align-items-center mb-1">
+                  <span className="badge bg-primary me-2">Moov</span>
+                  Moov Money
+                </div>
+                <div className="d-flex align-items-center">
+                  <span className="badge bg-info me-2">Carte</span>
+                  Carte bancaire Visa/Mastercard
+                </div>
               </div>
             </Alert>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowPaymentModal(false)}>
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowPaymentModal(false)}
+              disabled={processingPayment}
+            >
               Annuler
             </Button>
-            <Button variant="primary" type="submit" disabled={processingPayment}>
-              {processingPayment ? 'Redirection...' : 'Procéder au paiement'}
+            <Button 
+              variant="primary" 
+              type="submit" 
+              disabled={processingPayment}
+            >
+              {processingPayment ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" />
+                  Redirection...
+                </>
+              ) : (
+                <>
+                  <CreditCard size={18} className="me-2" />
+                  Procéder au paiement
+                </>
+              )}
             </Button>
           </Modal.Footer>
         </Form>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Container, Row, Col, Card, Form, Button, Alert, InputGroup } from 'react-bootstrap';
+import { ArrowLeft, Save, DollarSign, Info } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -38,6 +38,12 @@ const CreateFormation = () => {
     
     if (type === 'checkbox') {
       setFormData({ ...formData, [name]: checked });
+      // Si on passe en gratuit, réinitialiser le prix
+      if (name === 'is_free' && checked) {
+        setFormData(prev => ({ ...prev, [name]: checked, prix: '' }));
+      } else {
+        setFormData({ ...formData, [name]: checked });
+      }
     } else if (type === 'file') {
       setFormData({ ...formData, [name]: files[0] });
     } else {
@@ -52,6 +58,14 @@ const CreateFormation = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation supplémentaire
+    if (!formData.is_free && (!formData.prix || parseFloat(formData.prix) <= 0)) {
+      toast.error('Veuillez entrer un prix valide pour une formation payante');
+      setErrors({ prix: ['Le prix est requis pour une formation payante'] });
+      return;
+    }
+    
     setLoading(true);
     setErrors({});
 
@@ -61,7 +75,7 @@ const CreateFormation = () => {
     data.append('domaine_id', formData.domaine_id);
     data.append('is_free', formData.is_free ? '1' : '0');
     
-    if (!formData.is_free) {
+    if (!formData.is_free && formData.prix) {
       data.append('prix', formData.prix);
     }
     
@@ -84,10 +98,24 @@ const CreateFormation = () => {
       if (error.response?.data?.errors) {
         setErrors(error.response.data.errors);
       }
-      toast.error('Erreur lors de la création');
+      toast.error(error.response?.data?.message || 'Erreur lors de la création');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculer le montant que recevra le formateur (90%)
+  const calculateFormateurRevenue = () => {
+    if (!formData.prix || formData.is_free) return 0;
+    const prix = parseFloat(formData.prix);
+    return Math.round(prix * 0.9);
+  };
+
+  // Calculer la commission (10%)
+  const calculateCommission = () => {
+    if (!formData.prix || formData.is_free) return 0;
+    const prix = parseFloat(formData.prix);
+    return Math.round(prix * 0.1);
   };
 
   return (
@@ -111,6 +139,7 @@ const CreateFormation = () => {
                 <h4 className="mb-4">Créer une nouvelle formation</h4>
 
                 <Form onSubmit={handleSubmit}>
+                  {/* Titre */}
                   <Form.Group className="mb-3">
                     <Form.Label>Titre de la formation *</Form.Label>
                     <Form.Control
@@ -119,6 +148,7 @@ const CreateFormation = () => {
                       value={formData.titre}
                       onChange={handleChange}
                       isInvalid={!!errors.titre}
+                      placeholder="Ex: Maîtriser React.js de A à Z"
                       required
                     />
                     <Form.Control.Feedback type="invalid">
@@ -126,6 +156,7 @@ const CreateFormation = () => {
                     </Form.Control.Feedback>
                   </Form.Group>
 
+                  {/* Description */}
                   <Form.Group className="mb-3">
                     <Form.Label>Description *</Form.Label>
                     <Form.Control
@@ -135,6 +166,7 @@ const CreateFormation = () => {
                       value={formData.description}
                       onChange={handleChange}
                       isInvalid={!!errors.description}
+                      placeholder="Décrivez le contenu, les objectifs et ce que les apprenants vont apprendre..."
                       required
                     />
                     <Form.Control.Feedback type="invalid">
@@ -142,7 +174,8 @@ const CreateFormation = () => {
                     </Form.Control.Feedback>
                   </Form.Group>
 
-                  <Form.Group className="mb-3">
+                  {/* Domaine */}
+                  <Form.Group className="mb-4">
                     <Form.Label>Domaine *</Form.Label>
                     <Form.Select
                       name="domaine_id"
@@ -154,7 +187,7 @@ const CreateFormation = () => {
                       <option value="">Sélectionnez un domaine</option>
                       {domaines.map((domaine) => (
                         <option key={domaine.id} value={domaine.id}>
-                          {domaine.name}
+                          {domaine.icon} {domaine.name}
                         </option>
                       ))}
                     </Form.Select>
@@ -163,34 +196,100 @@ const CreateFormation = () => {
                     </Form.Control.Feedback>
                   </Form.Group>
 
+                  {/* Séparateur */}
+                  <hr className="my-4" />
+                  <h5 className="mb-3">💰 Tarification</h5>
+
+                  {/* Formation gratuite/payante */}
                   <Form.Group className="mb-3">
                     <Form.Check
-                      type="checkbox"
+                      type="switch"
+                      id="is_free"
                       name="is_free"
-                      label="Formation gratuite"
+                      label={
+                        <span className="d-flex align-items-center">
+                          <strong>Formation gratuite</strong>
+                          {formData.is_free && (
+                            <span className="badge bg-success ms-2">Gratuit</span>
+                          )}
+                        </span>
+                      }
                       checked={formData.is_free}
                       onChange={handleChange}
                     />
+                    <Form.Text className="text-muted">
+                      {formData.is_free 
+                        ? "Les apprenants pourront s'inscrire gratuitement" 
+                        : "Les apprenants devront payer pour accéder à la formation"}
+                    </Form.Text>
                   </Form.Group>
 
+                  {/* Prix (si payant) */}
                   {!formData.is_free && (
-                    <Form.Group className="mb-3">
-                      <Form.Label>Prix (FCFA) *</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="prix"
-                        value={formData.prix}
-                        onChange={handleChange}
-                        isInvalid={!!errors.prix}
-                        min="0"
-                        required={!formData.is_free}
-                      />
-                      <Form.Control.Feedback type="invalid">
-                        {errors.prix?.[0]}
-                      </Form.Control.Feedback>
-                    </Form.Group>
+                    <>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Prix de la formation (FCFA) *</Form.Label>
+                        <InputGroup>
+                          <InputGroup.Text>
+                            <DollarSign size={18} />
+                          </InputGroup.Text>
+                          <Form.Control
+                            type="number"
+                            name="prix"
+                            value={formData.prix}
+                            onChange={handleChange}
+                            isInvalid={!!errors.prix}
+                            min="100"
+                            step="100"
+                            placeholder="Ex: 15000"
+                            required={!formData.is_free}
+                          />
+                          <InputGroup.Text>FCFA</InputGroup.Text>
+                          <Form.Control.Feedback type="invalid">
+                            {errors.prix?.[0]}
+                          </Form.Control.Feedback>
+                        </InputGroup>
+                        <Form.Text className="text-muted">
+                          Prix minimum recommandé : 1000 FCFA
+                        </Form.Text>
+                      </Form.Group>
+
+                      {/* Calcul des revenus */}
+                      {formData.prix && parseFloat(formData.prix) > 0 && (
+                        <Alert variant="info" className="mb-3">
+                          <div className="d-flex align-items-start">
+                            <Info size={20} className="me-2 mt-1" />
+                            <div className="flex-grow-1">
+                              <strong>Répartition des revenus</strong>
+                              <div className="mt-2">
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span>Prix de vente :</span>
+                                  <strong>{parseFloat(formData.prix).toLocaleString()} FCFA</strong>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1 text-muted">
+                                  <span>Commission plateforme (10%) :</span>
+                                  <span>-{calculateCommission().toLocaleString()} FCFA</span>
+                                </div>
+                                <hr className="my-2" />
+                                <div className="d-flex justify-content-between">
+                                  <strong className="text-success">Vous recevrez :</strong>
+                                  <strong className="text-success">
+                                    {calculateFormateurRevenue().toLocaleString()} FCFA
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Alert>
+                      )}
+                    </>
                   )}
 
+                  {/* Séparateur */}
+                  <hr className="my-4" />
+                  <h5 className="mb-3">📚 Informations complémentaires</h5>
+
+                  {/* Durée estimée */}
                   <Form.Group className="mb-3">
                     <Form.Label>Durée estimée (en heures)</Form.Label>
                     <Form.Control
@@ -199,12 +298,15 @@ const CreateFormation = () => {
                       value={formData.duree_estimee}
                       onChange={handleChange}
                       min="1"
+                      step="0.5"
+                      placeholder="Ex: 10"
                     />
                     <Form.Text className="text-muted">
                       Estimation du temps nécessaire pour terminer la formation
                     </Form.Text>
                   </Form.Group>
 
+                  {/* Image */}
                   <Form.Group className="mb-4">
                     <Form.Label>Image de couverture</Form.Label>
                     <Form.Control
@@ -218,17 +320,20 @@ const CreateFormation = () => {
                     </Form.Text>
                   </Form.Group>
 
+                  {/* Info importante */}
                   <Alert variant="info">
-                    <strong>Note :</strong> La formation sera créée en mode brouillon. Vous pourrez ajouter des modules et chapitres avant de la publier.
+                    <strong>📌 Note importante :</strong> La formation sera créée en mode <strong>brouillon</strong>. 
+                    Vous pourrez ajouter des modules et chapitres avant de la publier.
                   </Alert>
 
+                  {/* Boutons */}
                   <div className="d-flex justify-content-between">
                     <Button variant="outline-secondary" onClick={() => navigate(-1)}>
                       Annuler
                     </Button>
                     <Button variant="success" type="submit" disabled={loading}>
                       <Save size={18} className="me-2" />
-                      {loading ? 'Création...' : 'Créer la formation'}
+                      {loading ? 'Création en cours...' : 'Créer la formation'}
                     </Button>
                   </div>
                 </Form>

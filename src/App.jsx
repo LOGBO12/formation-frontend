@@ -53,6 +53,11 @@ import CommunautesPage from './pages/apprenant/CommunautesPage';
 import CommunauteView from './pages/communaute/CommunauteView';
 import CommunauteModeration from './pages/communaute/CommunauteModeration';
 
+// Payment Pages
+import PaymentCallbackPage from './pages/apprenant/PaymentCallbackPage';
+import MesPaiementsPage from './pages/apprenant/Mespaiementspage';
+import RevenusPage from './pages/formateur/RevenusPage';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Layout wrapper
@@ -185,6 +190,11 @@ function App() {
                 </PrivateRoute>
               }
             />
+
+            // Ajouter les routes
+<Route path="/payment/callback" element={<PrivateRoute><PaymentCallbackPage /></PrivateRoute>} />
+<Route path="/apprenant/paiements" element={<PrivateRoute><MesPaiementsPage /></PrivateRoute>} />
+<Route path="/formateur/revenus" element={<PrivateRoute><RevenusPage /></PrivateRoute>} />
 
             {/* Formateur Routes - Gestion formations */}
             <Route

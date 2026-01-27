@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Navbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
+import { CreditCard, DollarSign } from 'lucide-react';
 import { 
   Home, 
   BookOpen, 
@@ -73,6 +74,7 @@ const NavbarComponent = () => {
           { to: '/formateur/apprenants', icon: UserCheck, label: 'Apprenants' },
           { to: '/formateur/statistiques', icon: BarChart3, label: 'Statistiques' },
           { to: '/formateur/communautes', icon: MessageSquare, label: 'Communautés' },
+          { to: '/formateur/revenus', icon: DollarSign, label: 'Revenus' },
         ];
       
       case 'apprenant':
@@ -82,6 +84,7 @@ const NavbarComponent = () => {
           { to: '/apprenant/catalogue', icon: Search, label: 'Catalogue' },
           { to: '/apprenant/progression', icon: TrendingUp, label: 'Ma Progression' },
           { to: '/apprenant/communautes', icon: MessageSquare, label: 'Communautés' },
+          { to: '/apprenant/paiements', icon: CreditCard, label: 'Paiements' },
         ];
       
       default:

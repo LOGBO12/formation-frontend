@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Badge, Form, InputGroup } from 'react-bootstrap';
-import { Search, Filter, BookOpen, Users, Star, DollarSign, Heart } from 'lucide-react';
+import { Search, Filter, BookOpen, Users, Star, DollarSign, ShoppingCart } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -57,14 +57,19 @@ const CataloguePage = () => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleInscription = async (formationId) => {
+  const handleInscriptionGratuite = async (formationId) => {
     try {
       await api.post(`/inscriptions/formations/${formationId}/demander`);
-      toast.success('Demande envoyée avec succès !');
-      fetchFormations();
+      toast.success('Inscription réussie !');
+      navigate('/apprenant/mes-formations');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors de l\'inscription');
     }
+  };
+
+  // 🆕 Fonction pour gérer les formations payantes
+  const handleVoirDetails = (lienPublic) => {
+    navigate(`/formations/${lienPublic}`);
   };
 
   if (loading && formations.length === 0) {
@@ -78,12 +83,14 @@ const CataloguePage = () => {
   return (
     <div className="min-vh-100 bg-light">
       {/* Header */}
-<div className="bg-gradient text-dark py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-  <Container>
-    <h2 className="fw-bold mb-2 text-dark">Catalogue des Formations</h2>
-    <p className="mb-0 text-dark">Découvrez des milliers de formations pour développer vos compétences</p>
-  </Container>
-</div>
+      <div className="bg-gradient text-white py-5" style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+      }}>
+        <Container>
+          <h2 className="fw-bold mb-2">Catalogue des Formations</h2>
+          <p className="mb-0">Découvrez des milliers de formations pour développer vos compétences</p>
+        </Container>
+      </div>
 
       <Container className="py-4">
         {/* Filters */}
@@ -182,7 +189,7 @@ const CataloguePage = () => {
                         <Badge bg="success" className="ms-2">Gratuit</Badge>
                       ) : (
                         <Badge bg="warning" className="ms-2 text-dark">
-                          {formation.prix} FCFA
+                          {parseFloat(formation.prix).toLocaleString()} FCFA
                         </Badge>
                       )}
                     </div>
@@ -215,19 +222,42 @@ const CataloguePage = () => {
 
                   <Card.Footer className="bg-white border-top">
                     <div className="d-grid gap-2">
-                      <Button
-                        variant="primary"
-                        onClick={() => handleInscription(formation.id)}
-                      >
-                        {formation.is_free ? "S'inscrire gratuitement" : "Demander l'accès"}
-                      </Button>
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => navigate(`/formations/${formation.lien_public}`)}
-                      >
-                        Voir détails
-                      </Button>
+                      {formation.is_free ? (
+                        // ✅ Formation gratuite - Inscription directe
+                        <>
+                          <Button
+                            variant="success"
+                            onClick={() => handleInscriptionGratuite(formation.id)}
+                          >
+                            S'inscrire gratuitement
+                          </Button>
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            onClick={() => handleVoirDetails(formation.lien_public)}
+                          >
+                            Voir détails
+                          </Button>
+                        </>
+                      ) : (
+                        // ✅ Formation payante - Voir détails puis acheter
+                        <>
+                          <Button
+                            variant="primary"
+                            onClick={() => handleVoirDetails(formation.lien_public)}
+                          >
+                            <ShoppingCart size={18} className="me-2" />
+                            Acheter - {parseFloat(formation.prix).toLocaleString()} FCFA
+                          </Button>
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleVoirDetails(formation.lien_public)}
+                          >
+                            Voir détails
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </Card.Footer>
                 </Card>
