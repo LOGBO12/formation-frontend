@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Row, Col } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button } from 'react-bootstrap';
 import { 
   Facebook, 
   Twitter, 
@@ -10,28 +11,32 @@ import {
   MapPin,
   GraduationCap 
 } from 'lucide-react';
+import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 const ImprovedFooter = () => {
   const currentYear = new Date().getFullYear();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
 
   const footerLinks = {
     plateforme: [
       { label: 'À propos', to: '/about' },
       { label: 'Comment ça marche', to: '/how-it-works' },
-      { label: 'Devenir formateur', to: '/become-instructor' },
-      { label: 'Blog', to: '/blog' },
+      { label: 'Formations', to: '/public/formations' },
+      { label: 'Blog', to: '#' }, // À implémenter plus tard
     ],
     support: [
-      { label: 'Centre d\'aide', to: '/help' },
+      { label: 'Centre d\'aide', to: '/faq' },
       { label: 'FAQ', to: '/faq' },
       { label: 'Nous contacter', to: '/contact' },
-      { label: 'Signaler un problème', to: '/report' },
+      { label: 'Signaler un problème', to: '#' }, // À implémenter plus tard
     ],
     legal: [
-      { label: 'Conditions d\'utilisation', to: '/terms' },
-      { label: 'Politique de confidentialité', to: '/privacy' },
-      { label: 'Politique de cookies', to: '/cookies' },
-      { label: 'Mentions légales', to: '/legal' },
+      { label: 'Conditions d\'utilisation', to: '#' }, // À implémenter plus tard
+      { label: 'Politique de confidentialité', to: '#' }, // À implémenter plus tard
+      { label: 'Politique de cookies', to: '#' }, // À implémenter plus tard
+      { label: 'Mentions légales', to: '#' }, // À implémenter plus tard
     ],
   };
 
@@ -41,6 +46,33 @@ const ImprovedFooter = () => {
     { icon: Linkedin, url: 'https://linkedin.com', label: 'LinkedIn' },
     { icon: Instagram, url: 'https://instagram.com', label: 'Instagram' },
   ];
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!newsletterEmail) {
+      toast.error('Veuillez entrer votre email');
+      return;
+    }
+
+    setNewsletterLoading(true);
+
+    try {
+      const response = await api.post('/public/newsletter/subscribe', {
+        email: newsletterEmail
+      });
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setNewsletterEmail('');
+      }
+    } catch (error) {
+      console.error('Erreur newsletter:', error);
+      toast.error(error.response?.data?.message || 'Erreur lors de l\'inscription');
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
 
   return (
     <footer className="bg-dark text-white pt-5 pb-3 mt-auto">
@@ -83,12 +115,25 @@ const ImprovedFooter = () => {
             <ul className="list-unstyled">
               {footerLinks.plateforme.map((link, index) => (
                 <li key={index} className="mb-2">
-                  <Link 
-                    to={link.to} 
-                    className="text-white-50 text-decoration-none hover-text-success"
-                  >
-                    {link.label}
-                  </Link>
+                  {link.to === '#' ? (
+                    <a 
+                      href={link.to}
+                      className="text-white-50 text-decoration-none hover-text-success"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toast.info('Cette page sera bientôt disponible');
+                      }}
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link 
+                      to={link.to} 
+                      className="text-white-50 text-decoration-none hover-text-success"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -100,12 +145,25 @@ const ImprovedFooter = () => {
             <ul className="list-unstyled">
               {footerLinks.support.map((link, index) => (
                 <li key={index} className="mb-2">
-                  <Link 
-                    to={link.to} 
-                    className="text-white-50 text-decoration-none hover-text-success"
-                  >
-                    {link.label}
-                  </Link>
+                  {link.to === '#' ? (
+                    <a 
+                      href={link.to}
+                      className="text-white-50 text-decoration-none hover-text-success"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toast.info('Cette page sera bientôt disponible');
+                      }}
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link 
+                      to={link.to} 
+                      className="text-white-50 text-decoration-none hover-text-success"
+                    >
+                      {link.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -117,12 +175,16 @@ const ImprovedFooter = () => {
             <ul className="list-unstyled">
               {footerLinks.legal.map((link, index) => (
                 <li key={index} className="mb-2">
-                  <Link 
-                    to={link.to} 
+                  <a 
+                    href={link.to}
                     className="text-white-50 text-decoration-none hover-text-success"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toast.info('Cette page sera bientôt disponible');
+                    }}
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -134,18 +196,33 @@ const ImprovedFooter = () => {
             <p className="text-white-50 small mb-3">
               Restez informé de nos nouveautés et formations.
             </p>
-            <form>
+            <Form onSubmit={handleNewsletterSubmit}>
               <div className="input-group mb-2">
                 <input 
                   type="email" 
                   className="form-control form-control-sm" 
-                  placeholder="Votre email" 
+                  placeholder="Votre email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  required
+                  disabled={newsletterLoading}
                 />
               </div>
-              <button className="btn btn-success btn-sm w-100">
-                S'abonner
+              <button 
+                className="btn btn-success btn-sm w-100"
+                type="submit"
+                disabled={newsletterLoading}
+              >
+                {newsletterLoading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-1"></span>
+                    Envoi...
+                  </>
+                ) : (
+                  "S'abonner"
+                )}
               </button>
-            </form>
+            </Form>
           </Col>
         </Row>
 

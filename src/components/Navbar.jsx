@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Navbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
-import { CreditCard, DollarSign } from 'lucide-react';
+import { CreditCard, DollarSign, Mail } from 'lucide-react';
 import { 
   Home, 
   BookOpen, 
@@ -65,6 +65,9 @@ const NavbarComponent = () => {
           { to: '/admin/domaines', icon: FolderOpen, label: 'Domaines' },
           { to: '/admin/utilisateurs', icon: Users, label: 'Utilisateurs' },
           { to: '/admin/formations', icon: BookOpen, label: 'Formations' },
+          { to: '/admin/contacts', icon: MessageSquare, label: 'Messages' },
+          { to: '/admin/newsletter', icon: Mail, label: 'Newsletter' },
+          { to: '/admin/revenus', icon: DollarSign, label: 'Revenus' },
         ];
       
       case 'formateur':

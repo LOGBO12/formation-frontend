@@ -8,6 +8,11 @@ import ImprovedFooter from './components/ImprovedFooter';
 
 // Public Pages
 import HomePage from './pages/public/HomePage';
+import PublicFormationsPage from './pages/public/PublicFormationsPage';
+import AboutPage from './pages/public/AboutPage';
+import ContactPage from './pages/public/ContactPage';
+import HowItWorksPage from './pages/public/HowItWorksPage';
+import FAQPage from './pages/public/FAQPage';
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -29,6 +34,9 @@ import ApprenantDashboard from './pages/dashboard/ApprenantDashboard';
 import DomainesManagement from './pages/admin/DomainesManagement';
 import UsersManagement from './pages/admin/UsersManagement';
 import FormationsManagement from './pages/admin/FormationsManagement';
+import AdminContactsPage from './pages/admin/AdminContactsPage';
+import AdminNewsletterPage from './pages/admin/AdminNewsletterPage';
+import AdminRevenusPage from './pages/admin/AdminRevenusPage';
 
 // Formateur Pages
 import FormationsPage from './pages/formateur/FormationsPage';
@@ -58,7 +66,7 @@ import PaymentCallbackPage from './pages/apprenant/PaymentCallbackPage';
 import MesPaiementsPage from './pages/apprenant/Mespaiementspage';
 import RevenusPage from './pages/formateur/RevenusPage';
 
-// 🆕 Profile & Settings Pages
+// Profile & Settings Pages
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -85,8 +93,15 @@ function App() {
         <Toaster position="top-right" />
         <Layout>
           <Routes>
-            {/* Public Routes */}
+            {/* ========== ROUTES PUBLIQUES ========== */}
             <Route path="/" element={<HomePage />} />
+            <Route path="/public/formations" element={<PublicFormationsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/how-it-works" element={<HowItWorksPage />} />
+            <Route path="/faq" element={<FAQPage />} />
+            
+            {/* Auth Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -118,7 +133,7 @@ function App() {
               }
             />
 
-            {/* 🆕 Profile & Settings Routes */}
+            {/* Profile & Settings Routes */}
             <Route
               path="/profile"
               element={
@@ -184,6 +199,30 @@ function App() {
               element={
                 <PrivateRoute>
                   <FormationsManagement />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/contacts"
+              element={
+                <PrivateRoute>
+                  <AdminContactsPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/newsletter"
+              element={
+                <PrivateRoute>
+                  <AdminNewsletterPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/revenus"
+              element={
+                <PrivateRoute>
+                  <AdminRevenusPage />
                 </PrivateRoute>
               }
             />

@@ -18,13 +18,16 @@ const PublicNavbar = () => {
             <Nav.Link as={Link} to="/" className="mx-2">
               Accueil
             </Nav.Link>
-            <Nav.Link href="#formations" className="mx-2">
+            <Nav.Link as={Link} to="/public/formations" className="mx-2">
               Formations
             </Nav.Link>
-            <Nav.Link href="#about" className="mx-2">
+            <Nav.Link as={Link} to="/about" className="mx-2">
               À propos
             </Nav.Link>
-            <Nav.Link href="#contact" className="mx-2">
+            <Nav.Link as={Link} to="/how-it-works" className="mx-2">
+              Comment ça marche
+            </Nav.Link>
+            <Nav.Link as={Link} to="/contact" className="mx-2">
               Contact
             </Nav.Link>
             
