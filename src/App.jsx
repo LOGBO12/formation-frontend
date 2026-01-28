@@ -58,6 +58,11 @@ import PaymentCallbackPage from './pages/apprenant/PaymentCallbackPage';
 import MesPaiementsPage from './pages/apprenant/Mespaiementspage';
 import RevenusPage from './pages/formateur/RevenusPage';
 
+// 🆕 Profile & Settings Pages
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Layout wrapper
@@ -109,6 +114,24 @@ function App() {
               element={
                 <PrivateRoute requireCompleteProfile={false}>
                   <PrivacyPolicy />
+                </PrivateRoute>
+              }
+            />
+
+            {/* 🆕 Profile & Settings Routes */}
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <ProfilePage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <PrivateRoute>
+                  <SettingsPage />
                 </PrivateRoute>
               }
             />
@@ -191,10 +214,10 @@ function App() {
               }
             />
 
-            // Ajouter les routes
-<Route path="/payment/callback" element={<PrivateRoute><PaymentCallbackPage /></PrivateRoute>} />
-<Route path="/apprenant/paiements" element={<PrivateRoute><MesPaiementsPage /></PrivateRoute>} />
-<Route path="/formateur/revenus" element={<PrivateRoute><RevenusPage /></PrivateRoute>} />
+            {/* Payment Routes */}
+            <Route path="/payment/callback" element={<PrivateRoute><PaymentCallbackPage /></PrivateRoute>} />
+            <Route path="/apprenant/paiements" element={<PrivateRoute><MesPaiementsPage /></PrivateRoute>} />
+            <Route path="/formateur/revenus" element={<PrivateRoute><RevenusPage /></PrivateRoute>} />
 
             {/* Formateur Routes - Gestion formations */}
             <Route
@@ -238,15 +261,15 @@ function App() {
               }
             />
 
-
             <Route
-  path="/formateur/communautes"
-  element={
-    <PrivateRoute>
-      <FormateurCommunautesPage />
-    </PrivateRoute>
-  }
-/>
+              path="/formateur/communautes"
+              element={
+                <PrivateRoute>
+                  <FormateurCommunautesPage />
+                </PrivateRoute>
+              }
+            />
+
             {/* Apprenant Routes */}
             <Route
               path="/apprenant/mes-formations"
@@ -256,24 +279,23 @@ function App() {
                 </PrivateRoute>
               }
             />
-            {/* NOUVELLE ROUTE À AJOUTER ICI */}
-              <Route
-                path="/apprenant/formations/:id"
-                element={
-                  <PrivateRoute>
-                    <FormationViewer />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/apprenant/quiz/:id"
-                element={
-                  <PrivateRoute>
-                    <QuizViewer />
-                  </PrivateRoute>
-                }
-              />
-              <Route
+            <Route
+              path="/apprenant/formations/:id"
+              element={
+                <PrivateRoute>
+                  <FormationViewer />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/apprenant/quiz/:id"
+              element={
+                <PrivateRoute>
+                  <QuizViewer />
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/apprenant/catalogue"
               element={
                 <PrivateRoute>
@@ -318,6 +340,7 @@ function App() {
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
           </Routes>
         </Layout>
       </AuthProvider>

@@ -10,7 +10,6 @@ import {
   Settings, 
   LogOut, 
   User,
-  Bell,
   MessageSquare,
   GraduationCap,
   FolderOpen,
@@ -19,6 +18,7 @@ import {
   Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationDropdown from './NotificationDropdown';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
@@ -118,6 +118,60 @@ const NavbarComponent = () => {
     }
   };
 
+  const getProfilePhotoUrl = () => {
+    if (user?.profile?.photo) {
+      return `${import.meta.env.VITE_API_URL}/storage/${user.profile.photo}`;
+    }
+    return null;
+  };
+
+  const UserAvatar = ({ size = 35 }) => {
+    const photoUrl = getProfilePhotoUrl();
+    
+    if (photoUrl) {
+      return (
+        <div
+          className="rounded-circle overflow-hidden me-2"
+          style={{ 
+            width: size, 
+            height: size,
+            minWidth: size,
+            minHeight: size,
+          }}
+        >
+          <img
+            src={photoUrl}
+            alt={user.name}
+            className="w-100 h-100"
+            style={{ 
+              objectFit: 'cover',
+              objectPosition: 'center'
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div 
+            className="bg-primary rounded-circle d-none align-items-center justify-content-center text-white"
+            style={{ width: size, height: size }}
+          >
+            <User size={18} />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-2"
+        style={{ width: size, height: size }}
+      >
+        <User size={18} />
+      </div>
+    );
+  };
+
   if (!user) {
     return null;
   }
@@ -161,31 +215,15 @@ const NavbarComponent = () => {
 
           {/* Right Side */}
           <Nav className="align-items-lg-center">
-            {/* Notifications */}
-            <Nav.Link className="position-relative">
-              <Bell size={20} />
-              {notifications > 0 && (
-                <Badge 
-                  bg="danger" 
-                  pill 
-                  className="position-absolute top-0 start-100 translate-middle"
-                  style={{ fontSize: '0.65rem' }}
-                >
-                  {notifications}
-                </Badge>
-              )}
-            </Nav.Link>
+            {/* Notifications Dropdown */}
+            <NotificationDropdown />
 
-            {/* User Dropdown */}
+            {/* User Dropdown avec Avatar */}
             <NavDropdown
               title={
                 <div className="d-inline-flex align-items-center">
-                  <div 
-                    className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-2"
-                    style={{ width: 35, height: 35 }}
-                  >
-                    <User size={18} />
-                  </div>
+                  <UserAvatar size={35} />
+                  
                   <div className="d-none d-lg-block text-start">
                     <div className="fw-semibold" style={{ fontSize: '0.9rem' }}>
                       {user.name}
