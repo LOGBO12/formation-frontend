@@ -18,7 +18,10 @@ import FAQPage from './pages/public/FAQPage';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import FormationDetailPage from "./pages/apprenant/FormationDetailPage";
+import VerifyEmail from './pages/auth/VerifyEmail';
+import ConfirmPassword from './pages/auth/ConfirmPassword';
 
 // Onboarding Pages
 import SelectRole from './pages/onboarding/SelectRole';
@@ -106,6 +109,15 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/formations/:lienPublic" element={<FormationDetailPage />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+        
+        {/* Routes protégées */}
+        <Route path="/confirm-password" element={
+          <PrivateRoute>
+            <ConfirmPassword />
+          </PrivateRoute>
+        } />
 
             {/* Onboarding Routes */}
             <Route
