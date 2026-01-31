@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Badge, Form, InputGroup, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Badge, Form, InputGroup, Alert, Spinner } from 'react-bootstrap';
 import { Search, Filter, BookOpen, Users, Star, Clock, DollarSign, ArrowRight, LogIn } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ const PublicFormationsPage = () => {
   const navigate = useNavigate();
   const [formations, setFormations] = useState([]);
   const [domaines, setDomaines] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     search: '',
@@ -16,108 +17,52 @@ const PublicFormationsPage = () => {
     is_free: '',
     sort_by: 'recent'
   });
+  const [pagination, setPagination] = useState(null);
 
   useEffect(() => {
-    fetchData();
+    fetchDomaines();
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    fetchFormations();
   }, [filters]);
 
-  const fetchData = async () => {
+  const fetchDomaines = async () => {
+    try {
+      const response = await api.get('/domaines');
+      setDomaines(response.data.domaines);
+    } catch (error) {
+      console.error('Erreur domaines:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/public/formations/stats/general');
+      setStats(response.data.stats);
+    } catch (error) {
+      console.error('Erreur stats:', error);
+    }
+  };
+
+  const fetchFormations = async (page = 1) => {
     try {
       setLoading(true);
+      const params = new URLSearchParams({
+        ...filters,
+        page
+      });
       
-      // Récupérer les domaines
-      const domainesRes = await api.get('/domaines');
-      setDomaines(domainesRes.data.domaines);
-
-      // Pour le moment, simuler des formations publiques
-      const formationsRes = await api.get('/domaines');
+      const response = await api.get(`/public/formations?${params}`);
       
-      // Données de démonstration
-      const mockFormations = [
-        {
-          id: 1,
-          titre: "Maîtriser React.js de A à Z",
-          description: "Apprenez React.js de zéro jusqu'à devenir un expert. Création d'applications modernes et performantes.",
-          prix: 25000,
-          is_free: false,
-          image: null,
-          formateur: { name: "Jean Dupont" },
-          domaine: { name: "Développement Web", id: 1 },
-          inscriptions_count: 156,
-          duree_estimee: 40,
-          lien_public: "react-masterclass-2024"
-        },
-        {
-          id: 2,
-          titre: "Introduction au Design UX/UI",
-          description: "Découvrez les principes fondamentaux du design d'expérience utilisateur et d'interface.",
-          prix: 0,
-          is_free: true,
-          image: null,
-          formateur: { name: "Marie Martin" },
-          domaine: { name: "Design", id: 2 },
-          inscriptions_count: 423,
-          duree_estimee: 15,
-          lien_public: "ux-ui-intro-free"
-        },
-        {
-          id: 3,
-          titre: "Marketing Digital pour Débutants",
-          description: "Apprenez les bases du marketing digital : SEO, réseaux sociaux, email marketing et plus encore.",
-          prix: 18000,
-          is_free: false,
-          image: null,
-          formateur: { name: "Pierre Dubois" },
-          domaine: { name: "Marketing", id: 3 },
-          inscriptions_count: 289,
-          duree_estimee: 25,
-          lien_public: "marketing-digital-basics"
-        },
-        {
-          id: 4,
-          titre: "Python pour l'Analyse de Données",
-          description: "Formation complète sur Python appliqué à la data science : pandas, numpy, matplotlib, et machine learning.",
-          prix: 30000,
-          is_free: false,
-          image: null,
-          formateur: { name: "Sophie Bernard" },
-          domaine: { name: "Data Science", id: 4 },
-          inscriptions_count: 198,
-          duree_estimee: 50,
-          lien_public: "python-data-analysis"
-        },
-        {
-          id: 5,
-          titre: "Photographie pour Débutants",
-          description: "Maîtrisez les bases de la photographie : composition, lumière, réglages et post-traitement.",
-          prix: 0,
-          is_free: true,
-          image: null,
-          formateur: { name: "Luc Petit" },
-          domaine: { name: "Photographie", id: 5 },
-          inscriptions_count: 567,
-          duree_estimee: 12,
-          lien_public: "photo-basics-free"
-        },
-        {
-          id: 6,
-          titre: "Gestion de Projet Agile",
-          description: "Apprenez les méthodologies agiles (Scrum, Kanban) pour gérer vos projets efficacement.",
-          prix: 22000,
-          is_free: false,
-          image: null,
-          formateur: { name: "Claire Roux" },
-          domaine: { name: "Business", id: 6 },
-          inscriptions_count: 234,
-          duree_estimee: 20,
-          lien_public: "agile-project-management"
-        }
-      ];
-
-      setFormations(mockFormations);
+      if (response.data.success) {
+        setFormations(response.data.formations.data);
+        setPagination(response.data.formations);
+      }
     } catch (error) {
-      console.error('Erreur:', error);
-      toast.error('Erreur lors du chargement');
+      console.error('Erreur formations:', error);
+      toast.error('Erreur lors du chargement des formations');
     } finally {
       setLoading(false);
     }
@@ -127,61 +72,22 @@ const PublicFormationsPage = () => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const filteredFormations = formations.filter(formation => {
-    // Filtre par recherche
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      if (!formation.titre.toLowerCase().includes(searchLower) &&
-          !formation.description.toLowerCase().includes(searchLower)) {
-        return false;
-      }
-    }
-
-    // Filtre par domaine
-    if (filters.domaine_id && formation.domaine.id !== parseInt(filters.domaine_id)) {
-      return false;
-    }
-
-    // Filtre gratuit/payant
-    if (filters.is_free !== '') {
-      if (filters.is_free === '1' && !formation.is_free) return false;
-      if (filters.is_free === '0' && formation.is_free) return false;
-    }
-
-    return true;
-  }).sort((a, b) => {
-    switch (filters.sort_by) {
-      case 'popular':
-        return b.inscriptions_count - a.inscriptions_count;
-      case 'price_asc':
-        return a.prix - b.prix;
-      case 'price_desc':
-        return b.prix - a.prix;
-      default:
-        return 0;
-    }
-  });
-
-  const handleFormationClick = (formation) => {
-    navigate('/login', { 
-      state: { 
-        from: `/formations/${formation.lien_public}`,
-        message: 'Connectez-vous pour accéder à cette formation' 
-      } 
-    });
+  const handleFormationClick = (lienPublic) => {
+    // Rediriger vers la page de détails (accessible sans login)
+    navigate(`/formations/${lienPublic}`);
   };
 
-  if (loading) {
+  if (loading && formations.length === 0) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status"></div>
+        <Spinner animation="border" variant="primary" />
       </div>
     );
   }
 
   return (
     <div className="min-vh-100 bg-light">
-      {/* Hero Section - CORRIGÉ avec meilleur alignement */}
+      {/* Hero Section */}
       <div className="py-5 text-white" style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
       }}>
@@ -190,8 +96,8 @@ const PublicFormationsPage = () => {
             <Col lg={8}>
               <h1 className="display-5 fw-bold mb-3">Catalogue de Formations</h1>
               <p className="lead mb-0 opacity-90">
-                Découvrez nos {formations.length} formations pour développer vos compétences. 
-                Formations gratuites et payantes disponibles.
+                Découvrez {pagination?.total || 0} formations pour développer vos compétences. 
+                {stats && ` ${stats.total_gratuit} formations gratuites disponibles.`}
               </p>
             </Col>
             <Col lg={4} className="mt-4 mt-lg-0">
@@ -212,44 +118,44 @@ const PublicFormationsPage = () => {
       </div>
 
       {/* Stats rapides */}
-      <Container className="py-4">
-        <Row>
-          <Col md={3} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Body className="text-center">
-                <h3 className="text-primary mb-1">{formations.length}</h3>
-                <small className="text-muted">Formations disponibles</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Body className="text-center">
-                <h3 className="text-success mb-1">
-                  {formations.filter(f => f.is_free).length}
-                </h3>
-                <small className="text-muted">Formations gratuites</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Body className="text-center">
-                <h3 className="text-info mb-1">200+</h3>
-                <small className="text-muted">Formateurs experts</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Body className="text-center">
-                <h3 className="text-warning mb-1">5000+</h3>
-                <small className="text-muted">Étudiants actifs</small>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+      {stats && (
+        <Container className="py-4">
+          <Row>
+            <Col md={3} className="mb-3">
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="text-center">
+                  <h3 className="text-primary mb-1">{stats.total_formations}</h3>
+                  <small className="text-muted">Formations disponibles</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3} className="mb-3">
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="text-center">
+                  <h3 className="text-success mb-1">{stats.total_gratuit}</h3>
+                  <small className="text-muted">Formations gratuites</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3} className="mb-3">
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="text-center">
+                  <h3 className="text-info mb-1">{stats.total_formateurs}+</h3>
+                  <small className="text-muted">Formateurs experts</small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3} className="mb-3">
+              <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="text-center">
+                  <h3 className="text-warning mb-1">{stats.total_apprenants}+</h3>
+                  <small className="text-muted">Étudiants actifs</small>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      )}
 
       <Container className="py-4">
         {/* Alert pour visiteurs */}
@@ -327,11 +233,11 @@ const PublicFormationsPage = () => {
         {/* Results */}
         <div className="mb-3">
           <h5 className="text-muted">
-            {filteredFormations.length} formation(s) trouvée(s)
+            {pagination?.total || 0} formation(s) trouvée(s)
           </h5>
         </div>
 
-        {filteredFormations.length === 0 ? (
+        {formations.length === 0 ? (
           <Card className="border-0 shadow-sm">
             <Card.Body className="text-center py-5">
               <BookOpen size={64} className="text-muted mb-3 opacity-50" />
@@ -341,7 +247,7 @@ const PublicFormationsPage = () => {
           </Card>
         ) : (
           <Row>
-            {filteredFormations.map((formation) => (
+            {formations.map((formation) => (
               <Col lg={4} md={6} key={formation.id} className="mb-4">
                 <Card className="h-100 border-0 shadow-sm hover-card">
                   {formation.is_free && (
@@ -353,12 +259,26 @@ const PublicFormationsPage = () => {
                     </div>
                   )}
                   
-                  {/* Image placeholder */}
+                  {/* Image */}
+                  {formation.image ? (
+                    <Card.Img
+                      variant="top"
+                      src={`${import.meta.env.VITE_API_URL}/storage/${formation.image}`}
+                      style={{ height: '200px', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  
+                  {/* Placeholder si pas d'image */}
                   <div 
                     className="d-flex align-items-center justify-content-center text-white"
                     style={{ 
                       height: '200px',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: formation.image ? 'none' : 'flex'
                     }}
                   >
                     <BookOpen size={80} className="opacity-50" />
@@ -405,10 +325,10 @@ const PublicFormationsPage = () => {
                     <Button
                       variant={formation.is_free ? "success" : "primary"}
                       className="w-100"
-                      onClick={() => handleFormationClick(formation)}
+                      onClick={() => handleFormationClick(formation.lien_public)}
                     >
                       {formation.is_free ? (
-                        <>Commencer gratuitement</>
+                        <>Voir les détails</>
                       ) : (
                         <>
                           <DollarSign size={18} className="me-2" />
@@ -422,6 +342,45 @@ const PublicFormationsPage = () => {
               </Col>
             ))}
           </Row>
+        )}
+
+        {/* Pagination */}
+        {pagination && pagination.last_page > 1 && (
+          <div className="d-flex justify-content-center mt-4">
+            <nav>
+              <ul className="pagination">
+                <li className={`page-item ${pagination.current_page === 1 ? 'disabled' : ''}`}>
+                  <button 
+                    className="page-link"
+                    onClick={() => fetchFormations(pagination.current_page - 1)}
+                  >
+                    Précédent
+                  </button>
+                </li>
+                {[...Array(pagination.last_page)].map((_, index) => (
+                  <li 
+                    key={index} 
+                    className={`page-item ${pagination.current_page === index + 1 ? 'active' : ''}`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => fetchFormations(index + 1)}
+                    >
+                      {index + 1}
+                    </button>
+                  </li>
+                ))}
+                <li className={`page-item ${pagination.current_page === pagination.last_page ? 'disabled' : ''}`}>
+                  <button 
+                    className="page-link"
+                    onClick={() => fetchFormations(pagination.current_page + 1)}
+                  >
+                    Suivant
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
         )}
 
         {/* CTA Section */}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Badge, Modal, Form, Alert, InputGroup } from 'react-bootstrap';
-import { ArrowLeft, Users, Clock, BookOpen, Award, DollarSign, CreditCard, Shield, Info } from 'lucide-react';
+import { Container, Row, Col, Card, Button, Badge, Modal, Form, Alert, InputGroup, Spinner } from 'react-bootstrap';
+import { ArrowLeft, Users, Clock, BookOpen, Award, DollarSign, CreditCard, Shield, Info, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
@@ -22,11 +22,16 @@ const FormationDetailPage = () => {
 
   const fetchFormation = async () => {
     try {
-      const response = await api.get(`/formations/lien/${lienPublic}`);
-      setFormation(response.data.formation);
+      // ✅ Utiliser la route publique (pas besoin d'être connecté)
+      const response = await api.get(`/public/formations/${lienPublic}`);
+      
+      if (response.data.success) {
+        setFormation(response.data.formation);
+      }
     } catch (error) {
+      console.error('Erreur:', error);
       toast.error('Formation introuvable');
-      navigate('/apprenant/catalogue');
+      navigate('/public/formations');
     } finally {
       setLoading(false);
     }
@@ -36,7 +41,12 @@ const FormationDetailPage = () => {
     // Vérifier si l'utilisateur est connecté
     if (!user) {
       toast.error('Veuillez vous connecter pour vous inscrire');
-      navigate('/login');
+      navigate('/login', { 
+        state: { 
+          from: `/formations/${lienPublic}`,
+          message: 'Connectez-vous pour accéder à cette formation' 
+        } 
+      });
       return;
     }
 
@@ -102,7 +112,7 @@ const FormationDetailPage = () => {
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status"></div>
+        <Spinner animation="border" variant="primary" />
       </div>
     );
   }
@@ -131,12 +141,24 @@ const FormationDetailPage = () => {
         <Row>
           <Col lg={8}>
             {/* Image */}
-            {formation.image && (
+            {formation.image ? (
               <Card className="border-0 shadow-sm mb-4">
                 <Card.Img
                   src={`${import.meta.env.VITE_API_URL}/storage/${formation.image}`}
                   style={{ height: '400px', objectFit: 'cover' }}
                 />
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-sm mb-4">
+                <div 
+                  className="d-flex align-items-center justify-content-center text-white"
+                  style={{ 
+                    height: '400px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  }}
+                >
+                  <BookOpen size={120} className="opacity-50" />
+                </div>
               </Card>
             )}
 
@@ -172,13 +194,41 @@ const FormationDetailPage = () => {
                 <Card.Body>
                   <div className="mb-3">
                     <strong>{formation.modules.length} module(s)</strong>
+                    {formation.total_chapitres && (
+                      <span className="text-muted"> • {formation.total_chapitres} chapitre(s)</span>
+                    )}
+                    {formation.duree_totale && (
+                      <span className="text-muted"> • {formation.duree_totale} min</span>
+                    )}
                   </div>
                   {formation.modules.map((module, index) => (
                     <div key={module.id} className="mb-3 p-3 bg-light rounded">
                       <strong>Module {index + 1}: {module.titre}</strong>
-                      <div className="text-muted small mt-1">
+                      {module.description && (
+                        <p className="text-muted small mb-2 mt-1">{module.description}</p>
+                      )}
+                      <div className="text-muted small">
                         {module.chapitres?.length || 0} chapitre(s)
                       </div>
+                      
+                      {/* Afficher les chapitres en preview */}
+                      {module.chapitres && module.chapitres.length > 0 && (
+                        <div className="mt-2 ms-3">
+                          {module.chapitres.slice(0, 3).map((chapitre, idx) => (
+                            <div key={chapitre.id} className="small text-muted mb-1">
+                              {idx + 1}. {chapitre.titre}
+                              {chapitre.is_preview && (
+                                <Badge bg="success" className="ms-2 small">Aperçu</Badge>
+                              )}
+                            </div>
+                          ))}
+                          {module.chapitres.length > 3 && (
+                            <div className="small text-muted">
+                              ... et {module.chapitres.length - 3} autre(s)
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </Card.Body>
@@ -210,20 +260,45 @@ const FormationDetailPage = () => {
                 </div>
 
                 <div className="d-grid gap-3 mb-4">
-                  <Button
-                    variant={formation.is_free ? 'success' : 'primary'}
-                    size="lg"
-                    onClick={handleInscription}
-                  >
-                    {formation.is_free ? (
-                      <>S'inscrire gratuitement</>
-                    ) : (
-                      <>
-                        <CreditCard size={20} className="me-2" />
-                        Acheter maintenant
-                      </>
-                    )}
-                  </Button>
+                  {user ? (
+                    <Button
+                      variant={formation.is_free ? 'success' : 'primary'}
+                      size="lg"
+                      onClick={handleInscription}
+                    >
+                      {formation.is_free ? (
+                        <>S'inscrire gratuitement</>
+                      ) : (
+                        <>
+                          <CreditCard size={20} className="me-2" />
+                          Acheter maintenant
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        onClick={() => navigate('/login', { 
+                          state: { 
+                            from: `/formations/${lienPublic}`,
+                            message: 'Connectez-vous pour vous inscrire' 
+                          } 
+                        })}
+                      >
+                        <LogIn size={20} className="me-2" />
+                        Se connecter pour s'inscrire
+                      </Button>
+                      <Button
+                        variant="outline-primary"
+                        size="lg"
+                        onClick={() => navigate('/register')}
+                      >
+                        Créer un compte
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 {/* Info sur la garantie (si payant) */}
@@ -240,7 +315,7 @@ const FormationDetailPage = () => {
                 <div className="mb-3">
                   <div className="d-flex align-items-center mb-2">
                     <Users size={18} className="text-muted me-2" />
-                    <span>{formation.total_apprenants} inscrits</span>
+                    <span>{formation.inscriptions_count} inscrits</span>
                   </div>
                   {formation.duree_estimee && (
                     <div className="d-flex align-items-center mb-2">
@@ -276,106 +351,108 @@ const FormationDetailPage = () => {
         </Row>
       </Container>
 
-      {/* Modal de paiement */}
-      <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <CreditCard size={24} className="me-2" />
-            Paiement sécurisé
-          </Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handlePayment}>
-          <Modal.Body>
-            <Alert variant="info" className="small">
-              <Shield size={16} className="me-2" />
-              Vous allez être redirigé vers <strong>FedaPay</strong> pour effectuer le paiement de manière sécurisée.
-            </Alert>
+      {/* Modal de paiement (seulement si connecté) */}
+      {user && (
+        <Modal show={showPaymentModal} onHide={() => setShowPaymentModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <CreditCard size={24} className="me-2" />
+              Paiement sécurisé
+            </Modal.Title>
+          </Modal.Header>
+          <Form onSubmit={handlePayment}>
+            <Modal.Body>
+              <Alert variant="info" className="small">
+                <Shield size={16} className="me-2" />
+                Vous allez être redirigé vers <strong>FedaPay</strong> pour effectuer le paiement de manière sécurisée.
+              </Alert>
 
-            {/* Récapitulatif */}
-            <div className="mb-4 p-3 bg-light rounded">
-              <h6 className="fw-bold mb-3">Récapitulatif</h6>
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted">Formation :</span>
-                <strong>{formation.titre}</strong>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted">Formateur :</span>
-                <span>{formation.formateur.name}</span>
-              </div>
-              <hr className="my-2" />
-              <div className="d-flex justify-content-between">
-                <strong>Montant total :</strong>
-                <strong className="text-primary fs-5">
-                  {parseFloat(formation.prix).toLocaleString()} FCFA
-                </strong>
-              </div>
-            </div>
-
-            {/* Numéro de téléphone */}
-            <Form.Group className="mb-3">
-              <Form.Label>Numéro de téléphone Mobile Money *</Form.Label>
-              <InputGroup>
-                <InputGroup.Text>📱</InputGroup.Text>
-                <Form.Control
-                  type="tel"
-                  placeholder="Ex: +229 97 00 00 01"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  required
-                />
-              </InputGroup>
-              <Form.Text className="text-muted">
-                Format international : +229XXXXXXXX (Bénin), +228XXXXXXXX (Togo)
-              </Form.Text>
-            </Form.Group>
-
-            {/* Méthodes de paiement */}
-            <Alert variant="success" className="small mb-0">
-              <strong>💳 Méthodes de paiement acceptées :</strong>
-              <div className="mt-2">
-                <div className="d-flex align-items-center mb-1">
-                  <span className="badge bg-success me-2">MTN</span>
-                  MTN Mobile Money
+              {/* Récapitulatif */}
+              <div className="mb-4 p-3 bg-light rounded">
+                <h6 className="fw-bold mb-3">Récapitulatif</h6>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Formation :</span>
+                  <strong>{formation.titre}</strong>
                 </div>
-                <div className="d-flex align-items-center mb-1">
-                  <span className="badge bg-primary me-2">Moov</span>
-                  Moov Money
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted">Formateur :</span>
+                  <span>{formation.formateur.name}</span>
                 </div>
-                <div className="d-flex align-items-center">
-                  <span className="badge bg-info me-2">Carte</span>
-                  Carte bancaire Visa/Mastercard
+                <hr className="my-2" />
+                <div className="d-flex justify-content-between">
+                  <strong>Montant total :</strong>
+                  <strong className="text-primary fs-5">
+                    {parseFloat(formation.prix).toLocaleString()} FCFA
+                  </strong>
                 </div>
               </div>
-            </Alert>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button 
-              variant="secondary" 
-              onClick={() => setShowPaymentModal(false)}
-              disabled={processingPayment}
-            >
-              Annuler
-            </Button>
-            <Button 
-              variant="primary" 
-              type="submit" 
-              disabled={processingPayment}
-            >
-              {processingPayment ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" />
-                  Redirection...
-                </>
-              ) : (
-                <>
-                  <CreditCard size={18} className="me-2" />
-                  Procéder au paiement
-                </>
-              )}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+
+              {/* Numéro de téléphone */}
+              <Form.Group className="mb-3">
+                <Form.Label>Numéro de téléphone Mobile Money *</Form.Label>
+                <InputGroup>
+                  <InputGroup.Text>📱</InputGroup.Text>
+                  <Form.Control
+                    type="tel"
+                    placeholder="Ex: +229 97 00 00 01"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    required
+                  />
+                </InputGroup>
+                <Form.Text className="text-muted">
+                  Format international : +229XXXXXXXX (Bénin), +228XXXXXXXX (Togo)
+                </Form.Text>
+              </Form.Group>
+
+              {/* Méthodes de paiement */}
+              <Alert variant="success" className="small mb-0">
+                <strong>💳 Méthodes de paiement acceptées :</strong>
+                <div className="mt-2">
+                  <div className="d-flex align-items-center mb-1">
+                    <span className="badge bg-success me-2">MTN</span>
+                    MTN Mobile Money
+                  </div>
+                  <div className="d-flex align-items-center mb-1">
+                    <span className="badge bg-primary me-2">Moov</span>
+                    Moov Money
+                  </div>
+                  <div className="d-flex align-items-center">
+                    <span className="badge bg-info me-2">Carte</span>
+                    Carte bancaire Visa/Mastercard
+                  </div>
+                </div>
+              </Alert>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowPaymentModal(false)}
+                disabled={processingPayment}
+              >
+                Annuler
+              </Button>
+              <Button 
+                variant="primary" 
+                type="submit" 
+                disabled={processingPayment}
+              >
+                {processingPayment ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Redirection...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={18} className="me-2" />
+                    Procéder au paiement
+                  </>
+                )}
+              </Button>
+            </Modal.Footer>
+          </Form>
+        </Modal>
+      )}
     </div>
   );
 };
