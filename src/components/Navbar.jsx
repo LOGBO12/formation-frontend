@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Ajoutez useEffect ici
 import { useNavigate, Link } from 'react-router-dom';
 import { Navbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
 import { CreditCard, DollarSign, Mail } from 'lucide-react';
@@ -6,6 +6,7 @@ import {
   Home, 
   BookOpen, 
   Users, 
+  Wallet,
   BarChart3, 
   Settings, 
   LogOut, 
@@ -26,17 +27,34 @@ const NavbarComponent = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [notifications] = useState(0);
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0); // Ajoutez cet état
+
+  useEffect(() => {
+    // Récupérez le nombre de retraits en attente quand l'utilisateur est admin
+    if (user?.role === 'super_admin') {
+      fetchPendingWithdrawalsCount();
+    }
+  }, [user]);
+
+  const fetchPendingWithdrawalsCount = async () => {
+    try {
+      const response = await api.get('/admin/withdrawals/pending-count');
+      setPendingWithdrawalsCount(response.data.count);
+    } catch (error) {
+      console.error('Erreur lors de la récupération du nombre de retraits:', error);
+    }
+  };
 
   const handleLogout = async () => {
     try {
       await api.post('/logout');
       logout();
       toast.success('Déconnexion réussie');
-      navigate('/login');
+      navigate('/');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
       logout();
-      navigate('/login');
+      navigate('/');
     }
   };
 
@@ -58,6 +76,9 @@ const NavbarComponent = () => {
   const getNavLinks = () => {
     if (!user) return [];
 
+    // Déclarez une variable locale pour utiliser dans le switch
+    const pendingCount = pendingWithdrawalsCount || 0;
+
     switch (user.role) {
       case 'super_admin':
         return [
@@ -68,6 +89,12 @@ const NavbarComponent = () => {
           { to: '/admin/contacts', icon: MessageSquare, label: 'Messages' },
           { to: '/admin/newsletter', icon: Mail, label: 'Newsletter' },
           { to: '/admin/revenus', icon: DollarSign, label: 'Revenus' },
+          { 
+            to: '/admin/withdrawals', 
+            icon: Wallet, 
+            label: 'Retraits',
+            badge: pendingCount > 0 ? pendingCount : null
+          }
         ];
       
       case 'formateur':
@@ -78,6 +105,7 @@ const NavbarComponent = () => {
           { to: '/formateur/statistiques', icon: BarChart3, label: 'Statistiques' },
           { to: '/formateur/communautes', icon: MessageSquare, label: 'Communautés' },
           { to: '/formateur/revenus', icon: DollarSign, label: 'Revenus' },
+          { to: '/formateur/withdrawals', icon: Wallet,label: 'Mes Retraits'}
         ];
       
       case 'apprenant':
@@ -207,10 +235,20 @@ const NavbarComponent = () => {
                   key={index}
                   as={Link}
                   to={link.to}
-                  className="d-flex align-items-center mx-2"
+                  className="d-flex align-items-center mx-2 position-relative"
                 >
                   <Icon size={18} className="me-2" />
                   {link.label}
+                  {link.badge && (
+                    <Badge 
+                      bg="danger" 
+                      pill 
+                      className="position-absolute top-0 start-100 translate-middle"
+                      style={{ fontSize: '0.6rem', minWidth: '18px' }}
+                    >
+                      {link.badge}
+                    </Badge>
+                  )}
                 </Nav.Link>
               );
             })}
@@ -264,4 +302,4 @@ const NavbarComponent = () => {
   );
 };
 
-export default NavbarComponent;
+export default NavbarComponent;     

@@ -40,6 +40,7 @@ import FormationsManagement from './pages/admin/FormationsManagement';
 import AdminContactsPage from './pages/admin/AdminContactsPage';
 import AdminNewsletterPage from './pages/admin/AdminNewsletterPage';
 import AdminRevenusPage from './pages/admin/AdminRevenusPage';
+import AdminWithdrawalsPage from './pages/admin/AdminWithdrawalsPage'; // IMPORT AJOUTÉ
 
 // Formateur Pages
 import FormationsPage from './pages/formateur/FormationsPage';
@@ -51,6 +52,7 @@ import ManageModule from './pages/formateur/ManageModule';
 import EditChapitre from './pages/formateur/EditChapitre';
 import ManageQuiz from './pages/formateur/ManageQuiz';
 import FormateurCommunautesPage from './pages/formateur/FormateurCommunautesPage';
+import FormateurWithdrawalsPage from './pages/formateur/FormateurWithdrawalsPage'; // IMPORT AJOUTÉ
 
 // Apprenant Pages
 import MesFormations from './pages/apprenant/MesFormations';
@@ -230,6 +232,7 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route path="/admin/withdrawals" element={<AdminWithdrawalsPage />} />
             <Route
               path="/admin/revenus"
               element={
@@ -287,6 +290,9 @@ function App() {
                 </PrivateRoute>
               }
             />
+
+            <Route path="/formateur/withdrawals" element={<FormateurWithdrawalsPage />} />
+
             <Route
               path="/formateur/modules/:id"
               element={
