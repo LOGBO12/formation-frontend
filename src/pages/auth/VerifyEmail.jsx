@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Row, Col, Card, Spinner, Alert } from 'react-bootstrap';
-import { CheckCircle, XCircle, Mail, ArrowLeft } from 'lucide-react';
+import { Container, Row, Col, Card, Spinner, Alert, Button } from 'react-bootstrap';
+import { CheckCircle, XCircle, Mail, ArrowLeft, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
@@ -12,17 +12,27 @@ const VerifyEmail = () => {
   const [verifying, setVerifying] = useState(true);
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
+  const [expired, setExpired] = useState(false);
+  
+  // ✅ Utiliser useRef pour éviter les doubles appels
+  const hasVerified = useRef(false);
 
   useEffect(() => {
-    verifyEmail();
+    // ✅ Ne vérifier qu'une seule fois
+    if (!hasVerified.current) {
+      hasVerified.current = true;
+      verifyEmail();
+    }
   }, []);
 
   const verifyEmail = async () => {
     const token = searchParams.get('token');
     const email = searchParams.get('email');
 
+    console.log('🔍 Vérification email', { token, email });
+
     if (!token || !email) {
-      setError('Lien de vérification invalide');
+      setError('Lien de vérification invalide. Paramètres manquants.');
       setVerifying(false);
       return;
     }
@@ -33,18 +43,28 @@ const VerifyEmail = () => {
         email,
       });
 
+      console.log('✅ Réponse:', response.data);
+
       if (response.data.success) {
         setVerified(true);
         toast.success('Email vérifié avec succès !');
         
-        // Redirection après 3 secondes
+        // ✅ Redirection automatique après 3 secondes
         setTimeout(() => {
           navigate('/login');
         }, 3000);
       }
     } catch (err) {
+      console.error('❌ Erreur:', err);
+      
       const message = err.response?.data?.message || 'Erreur lors de la vérification';
       setError(message);
+      
+      // Vérifier si le lien est expiré
+      if (err.response?.data?.expired) {
+        setExpired(true);
+      }
+      
       toast.error(message);
     } finally {
       setVerifying(false);
@@ -63,7 +83,7 @@ const VerifyEmail = () => {
       const response = await api.post('/auth/resend-verification', { email });
       
       if (response.data.success) {
-        toast.success('Email de vérification renvoyé !');
+        toast.success('Email de vérification renvoyé ! Vérifiez votre boîte de réception.');
       }
     } catch (err) {
       toast.error('Erreur lors de l\'envoi');
@@ -96,51 +116,86 @@ const VerifyEmail = () => {
                   ) : verified ? (
                     <>
                       <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
-                           style={{ width: 80, height: 80 }}>
-                        <CheckCircle size={50} className="text-success" />
+                           style={{ width: 100, height: 100 }}>
+                        <CheckCircle size={60} className="text-success" />
                       </div>
-                      <h4 className="fw-bold text-success">Email vérifié !</h4>
-                      <p className="text-muted">
-                        Votre adresse email a été vérifiée avec succès.
-                      </p>
-                      <p className="text-muted">
-                        Redirection vers la page de connexion...
-                      </p>
+                      <h4 className="fw-bold text-success mb-3">Email vérifié ! ✅</h4>
+                      
+                      <Alert variant="success" className="text-start">
+                        <p className="mb-2">
+                          <strong>Félicitations !</strong> Votre adresse email a été vérifiée avec succès.
+                        </p>
+                        <p className="mb-0">
+                          Vous allez être redirigé vers la page de connexion dans quelques secondes...
+                        </p>
+                      </Alert>
+
+                      <div className="mt-4">
+                        <Button
+                          as={Link}
+                          to="/login"
+                          variant="success"
+                          size="lg"
+                          className="px-5"
+                        >
+                          Se connecter maintenant
+                        </Button>
+                      </div>
                     </>
                   ) : (
                     <>
                       <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
-                           style={{ width: 80, height: 80 }}>
-                        <XCircle size={50} className="text-danger" />
+                           style={{ width: 100, height: 100 }}>
+                        {expired ? (
+                          <Clock size={60} className="text-warning" />
+                        ) : (
+                          <XCircle size={60} className="text-danger" />
+                        )}
                       </div>
-                      <h4 className="fw-bold text-danger">Vérification échouée</h4>
-                      <Alert variant="danger" className="mt-3">
-                        {error}
+                      
+                      <h4 className="fw-bold text-danger mb-3">
+                        {expired ? 'Lien expiré ⏱️' : 'Vérification échouée ❌'}
+                      </h4>
+                      
+                      <Alert variant={expired ? 'warning' : 'danger'} className="text-start">
+                        <p className="mb-0">{error}</p>
                       </Alert>
 
+                      {expired && (
+                        <Alert variant="info" className="text-start">
+                          <p className="mb-0">
+                            💡 Les liens de vérification expirent après 24 heures pour des raisons de sécurité.
+                          </p>
+                        </Alert>
+                      )}
+
                       <div className="mt-4">
-                        <button 
-                          className="btn btn-primary w-100"
+                        <Button
+                          variant="primary"
                           onClick={resendVerification}
+                          className="w-100 mb-3"
                         >
                           <Mail size={20} className="me-2" />
                           Renvoyer l'email de vérification
-                        </button>
-                      </div>
+                        </Button>
 
-                      <div className="mt-3">
-                        <Link to="/register" className="btn btn-outline-primary w-100">
+                        <Button
+                          as={Link}
+                          to="/register"
+                          variant="outline-primary"
+                          className="w-100"
+                        >
                           Créer un nouveau compte
-                        </Link>
+                        </Button>
                       </div>
                     </>
                   )}
                 </div>
 
-                {!verifying && verified && (
+                {!verifying && !verified && (
                   <div className="text-center mt-4">
-                    <Link to="/login" className="btn btn-primary">
-                      Aller à la connexion
+                    <Link to="/login" className="text-primary text-decoration-none">
+                      Retour à la connexion
                     </Link>
                   </div>
                 )}
@@ -148,7 +203,7 @@ const VerifyEmail = () => {
             </Card>
 
             {/* Note de sécurité */}
-            {!verifying && !verified && (
+            {!verifying && (
               <div className="text-center mt-4">
                 <small className="text-muted">
                   🔒 Le lien de vérification expire après 24 heures

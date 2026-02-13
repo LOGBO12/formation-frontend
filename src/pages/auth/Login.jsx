@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, Card, Alert } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
+import { Mail, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../../api/axios';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -10,6 +12,8 @@ const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,6 +23,7 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setNeedsVerification(false);
 
     try {
       const user = await login(formData.email, formData.password);
@@ -40,10 +45,33 @@ const Login = () => {
       }
     } catch (err) {
       const message = err.response?.data?.message || 'Erreur de connexion';
-      setError(message);
+      
+      // ✅ Vérifier si c'est un problème de vérification d'email
+      if (err.response?.data?.email_verified === false) {
+        setNeedsVerification(true);
+        setUnverifiedEmail(err.response?.data?.email || formData.email);
+        setError(message);
+      } else {
+        setError(message);
+      }
+      
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const response = await api.post('/auth/resend-verification', {
+        email: unverifiedEmail
+      });
+
+      if (response.data.success) {
+        toast.success('Email de vérification renvoyé !');
+      }
+    } catch (err) {
+      toast.error('Erreur lors de l\'envoi de l\'email');
     }
   };
 
@@ -59,7 +87,37 @@ const Login = () => {
                   <p className="text-muted">Accédez à votre espace e-Learning</p>
                 </div>
 
-                {error && <Alert variant="danger">{error}</Alert>}
+                {error && !needsVerification && (
+                  <Alert variant="danger">{error}</Alert>
+                )}
+
+                {/* ✅ Message spécial si email non vérifié */}
+                {needsVerification && (
+                  <Alert variant="warning" className="mb-4">
+                    <div className="d-flex align-items-start">
+                      <Mail size={24} className="me-3 flex-shrink-0 mt-1" />
+                      <div className="flex-grow-1">
+                        <Alert.Heading className="h6 mb-2">
+                          <AlertCircle size={18} className="me-2" />
+                          Email non vérifié
+                        </Alert.Heading>
+                        <p className="mb-2">
+                          Vous devez vérifier votre adresse email avant de vous connecter.
+                        </p>
+                        <p className="mb-3">
+                          Un email a été envoyé à <strong>{unverifiedEmail}</strong>
+                        </p>
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          onClick={handleResendVerification}
+                        >
+                          📧 Renvoyer l'email de vérification
+                        </Button>
+                      </div>
+                    </div>
+                  </Alert>
+                )}
 
                 <Form onSubmit={handleSubmit}>
                   <Form.Group className="mb-3">

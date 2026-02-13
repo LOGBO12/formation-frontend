@@ -50,12 +50,25 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(response.data.user));
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'utilisateur:', error);
-      // Ne pas logout automatiquement ici
     }
   };
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
+    
+    // ✅ Vérifier si l'email est vérifié
+    if (response.data.email_verified === false) {
+      throw {
+        response: {
+          data: {
+            message: response.data.message,
+            email_verified: false,
+            email: response.data.email,
+          }
+        }
+      };
+    }
+    
     const { token: newToken, user: newUser } = response.data;
     
     localStorage.setItem('token', newToken);
@@ -74,6 +87,9 @@ export const AuthProvider = ({ children }) => {
       password,
       password_confirmation,
     });
+    
+    // ✅ Ne PAS connecter l'utilisateur après inscription
+    // Il doit d'abord vérifier son email
     return response.data;
   };
 
