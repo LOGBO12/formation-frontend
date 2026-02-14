@@ -18,15 +18,15 @@ const ContactPage = () => {
     {
       icon: Mail,
       title: "Email",
-      content: "contact@elearning.com",
-      link: "mailto:contact@elearning.com",
+      content: "dglink25@gmail.com",
+      link: "mailto:dglink25@gmail.com",
       color: "#0d6efd" // primary
     },
     {
       icon: Phone,
       title: "Téléphone",
-      content: "+229 00 00 00 00",
-      link: "tel:+22900000000",
+      content: "+229 90 07 89 88",
+      link: "tel:+2290190078988",
       color: "#198754" // success
     },
     {

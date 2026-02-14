@@ -45,16 +45,15 @@ const NavbarComponent = () => {
     }
   };
 
-  const handleLogout = async () => {
+   const handleLogout = async () => {
     try {
       await api.post('/logout');
-      logout();
-      toast.success('Déconnexion réussie');
-      navigate('/');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
+    } finally {
       logout();
-      navigate('/');
+      toast.success('Déconnexion réussie');
+      navigate('/');  // ✅ Redirection vers l'accueil et non /login
     }
   };
 
@@ -104,7 +103,7 @@ const NavbarComponent = () => {
           { to: '/formateur/apprenants', icon: UserCheck, label: 'Apprenants' },
           { to: '/formateur/statistiques', icon: BarChart3, label: 'Statistiques' },
           { to: '/formateur/communautes', icon: MessageSquare, label: 'Communautés' },
-          { to: '/formateur/revenus', icon: DollarSign, label: 'Revenus' },
+         // { to: '/formateur/revenus', icon: DollarSign, label: 'Revenus' },
           { to: '/formateur/withdrawals', icon: Wallet,label: 'Mes Retraits'}
         ];
       

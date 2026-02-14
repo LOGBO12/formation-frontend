@@ -19,6 +19,12 @@ const PublicFormationsPage = () => {
   });
   const [pagination, setPagination] = useState(null);
 
+  const [imageErrors, setImageErrors] = useState({});
+
+const handleImageError = (formationId) => {
+  setImageErrors(prev => ({ ...prev, [formationId]: true }));
+};
+
   useEffect(() => {
     fetchDomaines();
     fetchStats();
@@ -259,31 +265,25 @@ const PublicFormationsPage = () => {
                     </div>
                   )}
                   
-                  {/* Image */}
-                  {formation.image ? (
-                    <Card.Img
-                      variant="top"
-                      src={`${import.meta.env.VITE_API_URL}/storage/${formation.image}`}
-                      style={{ height: '200px', objectFit: 'cover' }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  
-                  {/* Placeholder si pas d'image */}
-                  <div 
-                    className="d-flex align-items-center justify-content-center text-white"
-                    style={{ 
-                      height: '200px',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      display: formation.image ? 'none' : 'flex'
-                    }}
-                  >
-                    <BookOpen size={80} className="opacity-50" />
-                  </div>
-                  
+                 {formation.image && !imageErrors[formation.id] ? (
+                      <Card.Img
+                        variant="top"
+                        src={`${import.meta.env.VITE_API_URL}/storage/${formation.image}`}
+                        style={{ height: '200px', objectFit: 'cover' }}
+                        onError={() => handleImageError(formation.id)}
+                      />
+                    ) : (
+                      <div 
+                        className="d-flex align-items-center justify-content-center text-white"
+                        style={{ 
+                          height: '200px',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                        }}
+                      >
+                        <BookOpen size={80} className="opacity-50" />
+                      </div>
+                    )}
+                                      
                   <Card.Body>
                     <div className="mb-2">
                       <Badge bg="info">{formation.domaine.name}</Badge>

@@ -14,11 +14,10 @@ const VerifyEmail = () => {
   const [error, setError] = useState('');
   const [expired, setExpired] = useState(false);
   
-  // ✅ Utiliser useRef pour éviter les doubles appels
+  // Éviter les doubles appels en mode StrictMode
   const hasVerified = useRef(false);
 
   useEffect(() => {
-    // ✅ Ne vérifier qu'une seule fois
     if (!hasVerified.current) {
       hasVerified.current = true;
       verifyEmail();
@@ -29,8 +28,6 @@ const VerifyEmail = () => {
     const token = searchParams.get('token');
     const email = searchParams.get('email');
 
-    console.log('🔍 Vérification email', { token, email });
-
     if (!token || !email) {
       setError('Lien de vérification invalide. Paramètres manquants.');
       setVerifying(false);
@@ -38,33 +35,29 @@ const VerifyEmail = () => {
     }
 
     try {
-      const response = await api.post('/auth/verify-email', {
-        token,
-        email,
-      });
-
-      console.log('✅ Réponse:', response.data);
+      const response = await api.post('/auth/verify-email', { token, email });
 
       if (response.data.success) {
         setVerified(true);
         toast.success('Email vérifié avec succès !');
-        
-        // ✅ Redirection automatique après 3 secondes
+
+        //  MODIFICATION : passer l'email via state pour pré-remplir le formulaire de connexion
         setTimeout(() => {
-          navigate('/login');
+          navigate('/login', {
+            state: {
+              emailVerified: true,
+              email: email,
+              toastMessage: '✅ Email vérifié ! Entrez votre mot de passe pour vous connecter.',
+            },
+          });
         }, 3000);
       }
     } catch (err) {
-      console.error('❌ Erreur:', err);
-      
       const message = err.response?.data?.message || 'Erreur lors de la vérification';
       setError(message);
-      
-      // Vérifier si le lien est expiré
       if (err.response?.data?.expired) {
         setExpired(true);
       }
-      
       toast.error(message);
     } finally {
       setVerifying(false);
@@ -73,15 +66,10 @@ const VerifyEmail = () => {
 
   const resendVerification = async () => {
     const email = searchParams.get('email');
-    
-    if (!email) {
-      toast.error('Email non fourni');
-      return;
-    }
+    if (!email) { toast.error('Email non fourni'); return; }
 
     try {
       const response = await api.post('/auth/resend-verification', { email });
-      
       if (response.data.success) {
         toast.success('Email de vérification renvoyé ! Vérifiez votre boîte de réception.');
       }
@@ -115,12 +103,12 @@ const VerifyEmail = () => {
                     </>
                   ) : verified ? (
                     <>
-                      <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                      <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
                            style={{ width: 100, height: 100 }}>
                         <CheckCircle size={60} className="text-success" />
                       </div>
                       <h4 className="fw-bold text-success mb-3">Email vérifié ! ✅</h4>
-                      
+
                       <Alert variant="success" className="text-start">
                         <p className="mb-2">
                           <strong>Félicitations !</strong> Votre adresse email a été vérifiée avec succès.
@@ -131,32 +119,25 @@ const VerifyEmail = () => {
                       </Alert>
 
                       <div className="mt-4">
-                        <Button
-                          as={Link}
-                          to="/login"
-                          variant="success"
-                          size="lg"
-                          className="px-5"
-                        >
+                        <Button as={Link} to="/login" variant="success" size="lg" className="px-5">
                           Se connecter maintenant
                         </Button>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                      <div className="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
                            style={{ width: 100, height: 100 }}>
-                        {expired ? (
-                          <Clock size={60} className="text-warning" />
-                        ) : (
-                          <XCircle size={60} className="text-danger" />
-                        )}
+                        {expired
+                          ? <Clock size={60} className="text-warning" />
+                          : <XCircle size={60} className="text-danger" />
+                        }
                       </div>
-                      
+
                       <h4 className="fw-bold text-danger mb-3">
                         {expired ? 'Lien expiré ⏱️' : 'Vérification échouée ❌'}
                       </h4>
-                      
+
                       <Alert variant={expired ? 'warning' : 'danger'} className="text-start">
                         <p className="mb-0">{error}</p>
                       </Alert>
@@ -170,21 +151,11 @@ const VerifyEmail = () => {
                       )}
 
                       <div className="mt-4">
-                        <Button
-                          variant="primary"
-                          onClick={resendVerification}
-                          className="w-100 mb-3"
-                        >
+                        <Button variant="primary" onClick={resendVerification} className="w-100 mb-3">
                           <Mail size={20} className="me-2" />
                           Renvoyer l'email de vérification
                         </Button>
-
-                        <Button
-                          as={Link}
-                          to="/register"
-                          variant="outline-primary"
-                          className="w-100"
-                        >
+                        <Button as={Link} to="/register" variant="outline-primary" className="w-100">
                           Créer un nouveau compte
                         </Button>
                       </div>
@@ -202,7 +173,6 @@ const VerifyEmail = () => {
               </Card.Body>
             </Card>
 
-            {/* Note de sécurité */}
             {!verifying && (
               <div className="text-center mt-4">
                 <small className="text-muted">

@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post('/logout');
+      await api.post('/');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     } finally {
